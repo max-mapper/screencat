@@ -8,14 +8,12 @@ var constraints = {
   video: {
     mandatory: {
       chromeMediaSource: 'screen',
-      minWidth: 1280,
-      minHeight: 720
+      maxWidth: 1280,
+      maxHeight: 720
     },
     optional: []
   }
 }
-
-console.log('hi')
 
 if (!qs.remote) {
   navigator.webkitGetUserMedia(constraints, function(stream) {
