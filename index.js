@@ -1,5 +1,6 @@
 var SimplePeer = require('simple-peer')
 var url = require('url')
+var zlib = require('zlib')
 
 var qs = url.parse(window.location.href, true).query
 var constraints = {
@@ -19,7 +20,7 @@ if (!qs.remote) {
   }, function(e) {
     if (e.code == e.PERMISSION_DENIED) {
       console.error(e)
-      console.error('PERMISSION_DENIED. Are you no SSL? Have you enabled the --enable-usermedia-screen-capture flag?')
+      console.error('PERMISSION_DENIED. Are you on SSL? Have you enabled the --enable-usermedia-screen-capturing flag?')
     }
   })
 } else {
@@ -29,13 +30,17 @@ if (!qs.remote) {
 
 function handleSignal(peer) {
   peer.on('signal', function (data) {
-    console.log('connect(' + JSON.stringify({"signal": new Buffer(JSON.stringify(data)).toString('base64')}) + ')')
+    zlib.deflate(JSON.stringify(data), function(err, deflated) {
+      console.log('connect(' + JSON.stringify({"signal": deflated.toString('base64')}) + ')')
+    })
   })
 
   window.connect = function(data) {
     var b64signal = data.signal
-    var signal = JSON.parse(new Buffer(b64signal, 'base64').toString())
-    peer.signal(signal)
+    zlib.inflate(new Buffer(b64signal, 'base64'), function(err, inflated) {
+      var signal = JSON.parse(inflated.toString())
+      peer.signal(signal)
+    })
   }
 
   peer.on('stream', function (stream) {
