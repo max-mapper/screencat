@@ -1,0 +1,28 @@
+{
+  "name": "screenshare",
+  "version": "1.0.0",
+  "description": "webrtc screensharing demo",
+  "main": "index.js",
+  "scripts": {
+    "build": "browserify index.js -o bundle.js",
+    "watch": "watchify index.js -o bundle.js -v",
+    "start": "crisp"
+  },
+  "author": "max ogden",
+  "license": "BSD",
+  "dependencies": {
+    "simple-peer": "^3.6.4"
+  },
+  "devDependencies": {
+    "crisp": "0.0.1",
+    "watchify": "^2.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maxogden/screenshare.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maxogden/screenshare/issues"
+  },
+  "homepage": "https://github.com/maxogden/screenshare"
+}
