@@ -22,7 +22,7 @@ var constraints = {
       chromeMediaSource: 'screen',
       maxWidth: 1280,
       maxHeight: 720,
-      maxFrameRate: 1
+      maxFrameRate: 15
     },
     optional: []
   }
