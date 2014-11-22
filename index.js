@@ -1,9 +1,12 @@
 window.debug = require('debug')
-var synthEvent = window.synthEvent = require('synthetic-dom-events')
+window.debug.enable('*')
+
+var synthEvent = require('synthetic-dom-events')
 var SimplePeer = require('simple-peer')
 var url = require('url')
 var zlib = require('zlib')
-var video, videoSize, remoteWidth, remoteHeight
+  
+var video, remoteWidth, remoteHeight
 
 var fakeMouse = document.createElement('div')
 fakeMouse.style.width = '5px'
@@ -13,7 +16,6 @@ fakeMouse.style.position = 'absolute'
 fakeMouse.style.pointerEvents = 'none'
 fakeMouse.style.transition = 'top 0.2s, left 0.2s ease-out'
 
-
 var qs = url.parse(window.location.href, true).query
 var constraints = {
   audio: false,
@@ -22,7 +24,7 @@ var constraints = {
       chromeMediaSource: 'screen',
       maxWidth: 1280,
       maxHeight: 720,
-      maxFrameRate: 15
+      maxFrameRate: 1
     },
     optional: []
   }
@@ -38,35 +40,19 @@ if (!qs.remote) {
       console.error('PERMISSION_DENIED. Are you on SSL? Have you enabled the --enable-usermedia-screen-capturing flag?')
     }
   })
-  
-
-  
 } else {
   var peer = new SimplePeer({ trickle: false })
   handleSignal(peer)
 }
 
-window.addEventListener('storage', function onStorage(e) {
-  if (e.key == 'screenshare') {
-    var connectionString = e.newValue;
-    console.log('localstorage signal (' + connectionString + ')');
-    connect(JSON.parse(connectionString));
-    window.removeEventListener('storage', onStorage);
-  }
-})
-
 function handleSignal(peer) {
   peer.on('signal', function (data) {
     zlib.deflate(JSON.stringify(data), function(err, deflated) {
-      var connectionString = JSON.stringify({
+      console.log('connect(' + JSON.stringify({
         "signal": deflated.toString('base64'),
         "width": screen.width,
         "height": screen.height
-      })
-
-      localStorage['screenshare'] = connectionString;
-
-      console.log('connect(' + connectionString + ')')
+      }) + ')')
     })
   })
 
@@ -75,7 +61,7 @@ function handleSignal(peer) {
     remoteHeight = data.height
     if (remoteWidth < screen.width && remoteHeight < screen.height)
       video.setAttribute('style', 'width: ' + remoteWidth + 'px; ' + 'height: ' + remoteHeight + 'px;')
-
+      
     var b64signal = data.signal
     zlib.inflate(new Buffer(b64signal, 'base64'), function(err, inflated) {
       var signal = JSON.parse(inflated.toString())
@@ -95,8 +81,8 @@ function handleSignal(peer) {
     realScreenX = lastData.screenX - lastData.clientX
     realScreenY = lastData.screenY - lastData.clientY
     
-    pointX = projectedX - realScreenX
-    pointY = projectedY - realScreenY
+    pointX = projectedX - realScreenX | 0
+    pointY = projectedY - realScreenY | 0
     
     fakeMouse.style.top = pointY + 'px'
     fakeMouse.style.left = pointX + 'px'
@@ -114,11 +100,8 @@ function handleSignal(peer) {
     }
     
     if (data.keydown && data.keydown.length) {
-      var el = document.activeElement
-      // el = document.elementFromPoint(pointX, pointY)
-
       data.keydown.forEach(function(e) {
-        console.log('dispatch', el);
+        var el = document.activeElement
         el.dispatchEvent(synthEvent('keydown', e))  
       })
     }
@@ -133,9 +116,7 @@ function handleSignal(peer) {
           if (!needsSend) return console.log('does not need send')
           peer.send(lastData)
           needsSend = false
-          // reset
-          lastData.keydown = false;
-          lastData.click = false;
+          lastData = {}
         }, 100)
       })
     }
@@ -169,11 +150,11 @@ function updateLastData(e) {
   lastData.screenY = e.screenY
   lastData.clientX = e.clientX
   lastData.clientY = e.clientY
-
+  
   if (video) {
-    videoSize = video.getBoundingClientRect()
-    lastData.canvasWidth = videoSize.width
-    lastData.canvasHeight = videoSize.height
+    var rects = video.getBoundingClientRect()
+    lastData.canvasWidth = rects.width
+    lastData.canvasHeight = rects.height
   }
 
   needsSend = true
