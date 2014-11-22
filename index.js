@@ -5,7 +5,12 @@ var synthEvent = require('synthetic-dom-events')
 var SimplePeer = require('simple-peer')
 var url = require('url')
 var zlib = require('zlib')
-  
+var keysim = require('keysim')
+var synthKeys = require('./synthkeys.js')
+
+var keyboard = keysim.Keyboard.US_ENGLISH
+synthKeys()
+
 var video, videoSize, remoteWidth, remoteHeight
   
 var fakeMouse = document.createElement('div')
@@ -109,13 +114,18 @@ function handleSignal(peer) {
       }
       
       targetEl.dispatchEvent(synthEvent('click', clickOpts))
+      if (keyboard.targetCanReceiveTextInput(targetEl)) {
+        targetEl.focus()
+      }
     }
     
     if (data.keydown && data.keydown.length) {
+      var val = ''
       data.keydown.forEach(function(e) {
-        var el = document.activeElement
-        el.dispatchEvent(synthEvent('keydown', e))  
+        if (e.keyCode === 8) return keyboard.dispatchEventsForAction('backspace', document.activeElement)
+        val += String.fromCharCode(e.keyCode)
       })
+      if (val.length > 0) keyboard.dispatchEventsForInput(val, document.activeElement)
     }
   })
   
@@ -157,6 +167,10 @@ window.addEventListener('keydown', function(e) {
   lastData.keydown = lastData.keydown || []
   lastData.keydown.push({keyCode: e.keyCode})
   needsSend = true
+  if (e.keyCode === 8 && document.activeElement === document.body) {
+    e.preventDefault()
+    return false
+  }
 })
 
 function updateLastData(e) {
