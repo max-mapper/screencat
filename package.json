@@ -6,7 +6,7 @@
   "scripts": {
     "build": "browserify index.js -o bundle.js",
     "watch": "watchify index.js -o bundle.js -v",
-    "start": "crisp"
+    "start": "npm run watch & crisp"
   },
   "author": "max ogden",
   "license": "BSD",

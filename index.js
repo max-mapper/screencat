@@ -1,8 +1,11 @@
 window.debug = require('debug')
-var synthEvent = window.synthEvent = require('synthetic-dom-events')
+window.debug.enable('*')
+
+var synthEvent = require('synthetic-dom-events')
 var SimplePeer = require('simple-peer')
 var url = require('url')
 var zlib = require('zlib')
+  
 var video, remoteWidth, remoteHeight
 
 var fakeMouse = document.createElement('div')
@@ -12,7 +15,6 @@ fakeMouse.style.background = 'salmon'
 fakeMouse.style.position = 'absolute'
 fakeMouse.style.pointerEvents = 'none'
 fakeMouse.style.transition = 'top 0.2s, left 0.2s ease-out'
-
 
 var qs = url.parse(window.location.href, true).query
 var constraints = {
@@ -38,9 +40,6 @@ if (!qs.remote) {
       console.error('PERMISSION_DENIED. Are you on SSL? Have you enabled the --enable-usermedia-screen-capturing flag?')
     }
   })
-  
-
-  
 } else {
   var peer = new SimplePeer({ trickle: false })
   handleSignal(peer)
