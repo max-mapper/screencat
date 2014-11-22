@@ -11,10 +11,12 @@
   "author": "max ogden",
   "license": "BSD",
   "dependencies": {
-    "simple-peer": "^3.6.4"
+    "simple-peer": "^3.6.4",
+    "synthetic-dom-events": "^0.2.2"
   },
   "devDependencies": {
     "crisp": "0.0.1",
+    "debug": "^2.1.0",
     "watchify": "^2.1.1"
   },
   "repository": {
