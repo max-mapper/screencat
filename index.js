@@ -114,8 +114,11 @@ function handleSignal(peer) {
     }
     
     if (data.keydown && data.keydown.length) {
+      var el = document.activeElement
+      // el = document.elementFromPoint(pointX, pointY)
+
       data.keydown.forEach(function(e) {
-        var el = document.activeElement
+        console.log('dispatch', el);
         el.dispatchEvent(synthEvent('keydown', e))  
       })
     }
@@ -130,7 +133,9 @@ function handleSignal(peer) {
           if (!needsSend) return console.log('does not need send')
           peer.send(lastData)
           needsSend = false
-          lastData = {}
+          // reset
+          lastData.keydown = false;
+          lastData.click = false;
         }, 100)
       })
     }
