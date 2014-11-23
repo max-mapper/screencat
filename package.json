@@ -12,7 +12,9 @@
   "author": "max ogden",
   "license": "BSD",
   "dependencies": {
+    "component-delegate": "^0.2.3",
     "debug": "^2.1.0",
+    "keysim": "^1.0.2",
     "simple-peer": "^3.6.4",
     "synthetic-dom-events": "^0.2.2"
   },
