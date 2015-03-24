@@ -17,7 +17,7 @@
     "debug": "^2.1.0",
     "keysim": "^1.0.2",
     "menubar": "^2.0.2",
-    "robotjs": "^0.1.1",
+    "robotjs": "maxogden/robotjs#keyupdown",
     "simple-peer": "^3.6.4",
     "synthetic-dom-events": "^0.2.2",
     "throttle-function": "^0.1.0",
