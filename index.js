@@ -11,6 +11,8 @@ ipc.on('window-position', function(data) {
   lastData = data
 })
 
+ipc.send('resize')
+
 var constraints = {
   audio: false,
   video: {
@@ -74,7 +76,6 @@ function handleSignal(peer) {
     // console.log(JSON.stringify(data), (Date.now() - last) + 'ms')
     // last = Date.now()
     
-    console.log(lastData, data)
     if (lastData && data.clientX) {
       var projectedX = data.clientX / data.canvasWidth * screen.width
       var projectedY = data.clientY / data.canvasHeight * screen.height
@@ -94,18 +95,38 @@ function handleSignal(peer) {
       console.log('GOT CLICK', data.click, [pointX, pointY])
     }
 
-    if (data.keydown) {
-      console.log("GOT KEYDOWN", data.keydown, vkey[data.keydown])
-      var k = vkey[data.keydown]
-      if (k.length === 1) {
-        setTimeout(function() {
-          robot.typeString(k)
-        }, 1000)
+    if (data.keyCode) {
+      var k = vkey[data.keyCode]
+      if (k.match(/^\w+$/)) {
+        k = k.toLowerCase()
       }
-      // var val = ''
-      // data.keydown.forEach(function(e) {
-      //
-      // })
+      if (k === '<space>') k = ' '
+      var modifiers = []
+      if (data.shift) modifiers.push('shift')
+      if (data.control) modifiers.push('control')
+      if (data.alt) modifiers.push('alt')
+      if (data.meta) modifiers.push('meta')
+      if (k[0] !== '<') {
+        setTimeout(function() {
+          console.log('type ' +  k + ' ' +JSON.stringify(modifiers))
+          modifiers.forEach(function(m) { robot.keyTap(m, 'down') })
+          robot.keyTap(k)
+          modifiers.forEach(function(m) { robot.keyTap(m, 'up') })
+        }, 3000)
+      } else {
+             if (k === '<enter>') robot.keyTap('enter')
+        else if (k === '<backspace>') robot.keyTap('backspace')
+        else if (k === '<up>') robot.keyTap('up')
+        else if (k === '<down>') robot.keyTap('down')
+        else if (k === '<left>') robot.keyTap('left')
+        else if (k === '<right>') robot.keyTap('right')
+        else if (k === '<delete>') robot.keyTap('delete')
+        else if (k === '<home>') robot.keyTap('home')
+        else if (k === '<end>') robot.keyTap('end')
+        else if (k === '<page-up>') robot.keyTap('pageup')
+        else if (k === '<page-down>') robot.keyTap('pagedown')
+        else console.log('did not type ' + k)
+      }
     }
   })
 
@@ -129,7 +150,14 @@ function handleSignal(peer) {
       ))
 
       window.addEventListener('keydown', function keydown (e) {
-        var data = {keydown: e.keyCode}
+        var data = {
+          keyCode: e.keyCode,
+          shift: e.shiftKey,
+          meta: e.metaKey,
+          control: e.ctrlKey,
+          alt: e.altKey
+        }
+        
         videoSize = video.getBoundingClientRect()
         data.canvasWidth = videoSize.width
         data.canvasHeight = videoSize.height

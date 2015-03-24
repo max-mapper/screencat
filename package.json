@@ -2,7 +2,7 @@
   "name": "screenshare",
   "version": "1.0.0",
   "description": "webrtc screensharing demo",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
     "build": "browserify index.js -o bundle.js",
     "watch": "watchify index.js -o bundle.js -v",
@@ -16,6 +16,7 @@
     "component-delegate": "^0.2.3",
     "debug": "^2.1.0",
     "keysim": "^1.0.2",
+    "menubar": "^2.0.2",
     "robotjs": "^0.1.1",
     "simple-peer": "^3.6.4",
     "synthetic-dom-events": "^0.2.2",
