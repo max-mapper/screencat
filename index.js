@@ -1,17 +1,14 @@
-var SimplePeer = require('simple-peer')
 var url = require('url')
 var zlib = require('zlib')
+
+var SimplePeer = require('simple-peer')
 var throttle = require('throttleit')
 var vkey = require('vkey')
-var ipc = require('ipc')
 
-var video, videoSize, robot, lastData
+var clipboard = require('clipboard')
 
-ipc.on('window-position', function(data) {
-  lastData = data
-})
-
-ipc.send('resize')
+var DEV = process.env['LOCALDEV'] || false
+var video, videoSize, robot
 
 var constraints = {
   audio: false,
@@ -47,59 +44,39 @@ if (process.env.REMOTE) {
 function handleSignal(peer) {
   window.peer = peer
   peer.on('signal', function (data) {
+    // sdp is ~2.5k usually, that's too big for a URL, so we zlib deflate it
     zlib.deflate(JSON.stringify(data), function(err, deflated) {
-      var connectionString = JSON.stringify({
-        "signal": deflated.toString('base64'),
-        "width": screen.width,
-        "height": screen.height
-      }) 
-    
-      console.log('connect(' + connectionString + ')')
+      var connectionString = deflated.toString('base64')
+      var code = encodeURIComponent(connectionString)
+      document.querySelector('input').value = code
+      document.querySelector('.copy').addEventListener('click', function(e) {
+        e.preventDefault()
+        clipboard.writeText(code)
+      })
+    })
+  })
+  
+  document.querySelector('.load').addEventListener('click', function(e) {
+    e.preventDefault()
+    var code = clipboard.readText()
+    code = decodeURIComponent(code)
+    zlib.inflate(new Buffer(code, 'base64'), function(err, inflated) {
+      peer.signal(JSON.parse(inflated.toString()))
     })
   })
 
-  window.connect = function(data) {
-    remoteWidth = data.width
-    remoteHeight = data.height
-    if (remoteWidth < screen.width && remoteHeight < screen.height)
-      video.setAttribute('style', 'width: ' + remoteWidth + 'px; ' + 'height: ' + remoteHeight + 'px;')
-    
-    var b64signal = data.signal
-    zlib.inflate(new Buffer(b64signal, 'base64'), function(err, inflated) {
-      var signal = JSON.parse(inflated.toString())
-      peer.signal(signal)
-    })
-  }
-
-  // var last = Date.now()
   peer.on('message', function(data) {
-    // console.log(JSON.stringify(data), (Date.now() - last) + 'ms')
-    // last = Date.now()
-    
-    if (lastData && data.clientX) {
-      var projectedX = data.clientX / data.canvasWidth * screen.width
-      var projectedY = data.clientY / data.canvasHeight * screen.height
-    
-      // var realScreenX = lastData.screenX - lastData.clientX
-      // var realScreenY = lastData.screenY - lastData.clientY
-
-      var pointX = projectedX - lastData.x
-      var pointY = projectedY - lastData.y
-      console.log('MOUSEMOVE', pointX, pointY)
-    }
-
-    // fakeMouse.style.top = pointY + 'px'
-    // fakeMouse.style.left = pointX + 'px'
-    
     if (data.click) {
-      console.log('GOT CLICK', data.click, [pointX, pointY])
+      var x = scale(data.clientX, 0, data.canvasWidth, 0, screen.width)
+      var y = scale(data.clientY, 0, data.canvasHeight, 0, screen.height)
+      var pos = robot.getMousePos() // hosts current x/y
+      robot.moveMouse(x, y) // move to remotes pos
+      robot.mouseClick() // click on remote click spot
+      robot.moveMouse(pos.x, pos.y) // go back to hosts position
     }
 
     if (data.keyCode) {
-      var k = vkey[data.keyCode]
-      if (k.match(/^\w+$/)) {
-        k = k.toLowerCase()
-      }
+      var k = vkey[data.keyCode].toLowerCase()
       if (k === '<space>') k = ' '
       var modifiers = []
       if (data.shift) modifiers.push('shift')
@@ -108,11 +85,9 @@ function handleSignal(peer) {
       if (data.meta) modifiers.push('meta')
       if (k[0] !== '<') {
         setTimeout(function() {
-          console.log('type ' +  k + ' ' +JSON.stringify(modifiers))
-          modifiers.forEach(function(m) { robot.keyTap(m, 'down') })
-          robot.keyTap(k)
-          modifiers.forEach(function(m) { robot.keyTap(m, 'up') })
-        }, 3000)
+          console.log('typed ' +  k + ' ' +JSON.stringify(modifiers))
+          robot.keyTap(k, modifiers[0])
+        }, TIMEOUT)
       } else {
              if (k === '<enter>') robot.keyTap('enter')
         else if (k === '<backspace>') robot.keyTap('backspace')
@@ -130,24 +105,19 @@ function handleSignal(peer) {
     }
   })
 
-  
   if (process.env.REMOTE) {
     if (peer.ready) startSending()
     else peer.on('ready', startSending)
       
     function startSending() {
+      console.log('start sending...')
       window.addEventListener('mousedown', function mousedown (e) {
         var data = getMouseData(e)
         data.click = true
-        peer.send(data)
+        
+        if (!DEV) peer.send(data)
+        else console.log('not sending mousedown')
       })
-
-      window.addEventListener('mousemove', throttle(
-        function mousemove (e) {
-          peer.send(getMouseData(e))
-        },
-        1000
-      ))
 
       window.addEventListener('keydown', function keydown (e) {
         var data = {
@@ -157,17 +127,13 @@ function handleSignal(peer) {
           control: e.ctrlKey,
           alt: e.altKey
         }
-        
-        videoSize = video.getBoundingClientRect()
-        data.canvasWidth = videoSize.width
-        data.canvasHeight = videoSize.height
-        peer.send(data)
+
+        if (!DEV) peer.send(data)
+        else console.log('not sending keydown ' + e.keyCode)
       })
 
       function getMouseData(e) {
         var data = {}
-        data.screenX = e.screenX
-        data.screenY = e.screenY
         data.clientX = e.clientX
         data.clientY = e.clientY
 
@@ -189,4 +155,8 @@ function handleSignal(peer) {
     var container = document.querySelector('.container')
     container.appendChild(video)
   })
+}
+
+function scale( x, fromLow, fromHigh, toLow, toHigh ) {
+  return ( x - fromLow ) * ( toHigh - toLow ) / ( fromHigh - fromLow ) + toLow
 }

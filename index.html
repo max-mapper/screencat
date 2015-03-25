@@ -6,11 +6,20 @@
     <style>
       html, body {margin: 0; padding: 0;}
       video { width: 100%; height: 100%; margin: 0; padding: 0; }
+      p { margin: 20px; }
+      .hidden { display: none; }
     </style>
 </head>
 <body>
   <div class="container"></div>
-  <textarea></textarea>
+  <div class="inputs">
+    <p>
+      <input></input> <a class="copy" href="#">copy</a>
+    </p>
+    <p>
+      <a class="load" href="#">load from clipboard</a>
+    </p>
+  </div>
   <script src="index.js"></script>
 </body>
 </html>
