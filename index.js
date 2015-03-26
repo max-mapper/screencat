@@ -2,8 +2,6 @@ var url = require('url')
 var zlib = require('zlib')
 
 var SimplePeer = require('simple-peer')
-var throttle = require('throttleit')
-var vkey = require('vkey')
 
 var clipboard = require('clipboard')
 
@@ -28,7 +26,7 @@ if (process.env.REMOTE) {
   console.log('client peer')
   handleSignal(peer)
 } else {
-  robot = require('robotjs')
+  robot = require('./robot.js')
   navigator.webkitGetUserMedia(constraints, function(stream) {
     var peer = new SimplePeer({ initiator: true, stream: stream, trickle: false })
     console.log('host peer', peer)
@@ -40,6 +38,7 @@ if (process.env.REMOTE) {
     }
   }) 
 }
+
 
 function handleSignal(peer) {
   window.peer = peer
@@ -66,43 +65,8 @@ function handleSignal(peer) {
   })
 
   peer.on('message', function(data) {
-    if (data.click) {
-      var x = scale(data.clientX, 0, data.canvasWidth, 0, screen.width)
-      var y = scale(data.clientY, 0, data.canvasHeight, 0, screen.height)
-      var pos = robot.getMousePos() // hosts current x/y
-      robot.moveMouse(x, y) // move to remotes pos
-      robot.mouseClick() // click on remote click spot
-      robot.moveMouse(pos.x, pos.y) // go back to hosts position
-    }
-
-    if (data.keyCode) {
-      var k = vkey[data.keyCode].toLowerCase()
-      if (k === '<space>') k = ' '
-      var modifiers = []
-      if (data.shift) modifiers.push('shift')
-      if (data.control) modifiers.push('control')
-      if (data.alt) modifiers.push('alt')
-      if (data.meta) modifiers.push('meta')
-      if (k[0] !== '<') {
-        setTimeout(function() {
-          console.log('typed ' +  k + ' ' +JSON.stringify(modifiers))
-          robot.keyTap(k, modifiers[0])
-        }, TIMEOUT)
-      } else {
-             if (k === '<enter>') robot.keyTap('enter')
-        else if (k === '<backspace>') robot.keyTap('backspace')
-        else if (k === '<up>') robot.keyTap('up')
-        else if (k === '<down>') robot.keyTap('down')
-        else if (k === '<left>') robot.keyTap('left')
-        else if (k === '<right>') robot.keyTap('right')
-        else if (k === '<delete>') robot.keyTap('delete')
-        else if (k === '<home>') robot.keyTap('home')
-        else if (k === '<end>') robot.keyTap('end')
-        else if (k === '<page-up>') robot.keyTap('pageup')
-        else if (k === '<page-down>') robot.keyTap('pagedown')
-        else console.log('did not type ' + k)
-      }
-    }
+    console.log(JSON.stringify(data))
+    if (robot) robot(data)
   })
 
   if (process.env.REMOTE) {
