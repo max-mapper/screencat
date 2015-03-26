@@ -1,14 +1,11 @@
 {
   "name": "screenshare",
   "version": "1.0.0",
-  "description": "webrtc screensharing demo",
+  "description": "webrtc screensharing with shared mouse and keyboard",
   "main": "app.js",
   "scripts": {
-    "build": "browserify index.js -o bundle.js",
-    "watch": "watchify index.js -o bundle.js -v",
-    "start": "npm run watch & crisp",
-    "canary": "\"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary\" --enable-usermedia-screen-capturing",
-    "app": "atom-shell app.js"
+    "app": "atom-shell app.js",
+    "build": "atom-shell-packager . Screenshare"
   },
   "author": "max ogden",
   "license": "BSD",
@@ -16,13 +13,14 @@
     "debug": "^2.1.0",
     "menubar": "^2.0.2",
     "robotjs": "maxogden/robotjs#keyupdown",
-    "simple-peer": "^3.6.4",
+    "simple-peer": "^4.0.4",
     "throttleit": "^1.0.0",
     "vkey": "^1.0.0"
   },
   "devDependencies": {
-    "crisp": "0.0.1",
-    "watchify": "^2.1.1"
+    "atom-shell": "^0.22.1",
+    "atom-shell-packager": "^1.2.0",
+    "gh-pages-deploy": "^0.3.0"
   },
   "repository": {
     "type": "git",
