@@ -5,7 +5,8 @@ var SimplePeer = require('simple-peer')
 
 var clipboard = require('clipboard')
 
-var DEV = process.env['LOCALDEV'] || false
+var DEV = process.env.LOCALDEV || false
+var REMOTECONTROL
 var video, videoSize, robot
 
 var configForm = document.querySelector('.inputs')
@@ -23,7 +24,7 @@ var constraints = {
   }
 }
 
-if (process.env.REMOTE) {
+if (REMOTECONTROL) {
   var peer = new SimplePeer({ trickle: false })
   console.log('client peer')
   handleSignal(peer)
@@ -66,52 +67,53 @@ function handleSignal(peer) {
     })
   })
 
-  peer.on('message', function(data) {
+  peer.on('data', function(data) {
     console.log(JSON.stringify(data))
     configForm.className = 'inputs hidden'
     if (robot) robot(data)
   })
 
-  if (process.env.REMOTE) {
-    if (peer.ready) startSending()
-    else peer.on('ready', startSending)
+  if (peer.connected) onConnect()
+  else peer.on('connect', onConnect)
+
+  function onConnect() {
+    configForm.className = 'inputs hidden' // hide ui
+    if (!REMOTECONTROL) return
+    console.log('start sending...')
+    
+    window.addEventListener('mousedown', function mousedown (e) {
+      var data = getMouseData(e)
+      data.click = true
       
-    function startSending() {
-      console.log('start sending...')
-      window.addEventListener('mousedown', function mousedown (e) {
-        var data = getMouseData(e)
-        data.click = true
-        
-        if (!DEV) peer.send(data)
-        else console.log('not sending mousedown')
-      })
+      if (!DEV) peer.send(data)
+      else console.log('not sending mousedown')
+    })
 
-      window.addEventListener('keydown', function keydown (e) {
-        var data = {
-          keyCode: e.keyCode,
-          shift: e.shiftKey,
-          meta: e.metaKey,
-          control: e.ctrlKey,
-          alt: e.altKey
-        }
-
-        if (!DEV) peer.send(data)
-        else console.log('not sending keydown ' + e.keyCode)
-      })
-
-      function getMouseData(e) {
-        var data = {}
-        data.clientX = e.clientX
-        data.clientY = e.clientY
-
-        if (video) {
-          videoSize = video.getBoundingClientRect()
-          data.canvasWidth = videoSize.width
-          data.canvasHeight = videoSize.height
-        }
-
-        return data
+    window.addEventListener('keydown', function keydown (e) {
+      var data = {
+        keyCode: e.keyCode,
+        shift: e.shiftKey,
+        meta: e.metaKey,
+        control: e.ctrlKey,
+        alt: e.altKey
       }
+
+      if (!DEV) peer.send(data)
+      else console.log('not sending keydown ' + e.keyCode)
+    })
+
+    function getMouseData(e) {
+      var data = {}
+      data.clientX = e.clientX
+      data.clientY = e.clientY
+
+      if (video) {
+        videoSize = video.getBoundingClientRect()
+        data.canvasWidth = videoSize.width
+        data.canvasHeight = videoSize.height
+      }
+
+      return data
     }
   }
 
