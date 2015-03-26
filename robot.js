@@ -7,8 +7,12 @@ module.exports = function createEvents(data) {
     var y = scale(data.clientY, 0, data.canvasHeight, 0, screen.height)
     var pos = robot.getMousePos() // hosts current x/y
     robot.moveMouse(x, y) // move to remotes pos
-    robot.mouseClick() // click on remote click spot
-    robot.moveMouse(pos.x, pos.y) // go back to hosts position
+    setTimeout(function(){
+      robot.mouseClick() // click on remote click spot
+      setTimeout(function(){
+        robot.moveMouse(pos.x, pos.y) // go back to hosts position
+      }, 20)
+    }, 20)
   }
   
   if (data.keyCode) {

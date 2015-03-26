@@ -8,6 +8,8 @@ var clipboard = require('clipboard')
 var DEV = process.env['LOCALDEV'] || false
 var video, videoSize, robot
 
+var configForm = document.querySelector('.inputs')
+
 var constraints = {
   audio: false,
   video: {
@@ -66,6 +68,7 @@ function handleSignal(peer) {
 
   peer.on('message', function(data) {
     console.log(JSON.stringify(data))
+    configForm.className = 'inputs hidden'
     if (robot) robot(data)
   })
 
