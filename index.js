@@ -6,10 +6,40 @@ var SimplePeer = require('simple-peer')
 var clipboard = require('clipboard')
 
 var DEV = process.env.LOCALDEV || false
-var REMOTECONTROL
+
 var video, videoSize, robot
 
-var configForm = document.querySelector('.inputs')
+var containers = {
+  share: document.querySelector('.share-container'),
+  join: document.querySelector('.join-container'),
+  content: document.querySelector('.content-container'),
+  choose: document.querySelector('.choose-container'),
+  video: document.querySelector('.video-container')
+}
+
+var buttons = {
+  share: document.querySelector('.share-button'),
+  join: document.querySelector('.join-button'),
+  copy: document.querySelector('.code-copy-button'),
+  paste: document.querySelector('.code-paste-button')
+}
+
+var inputs = {
+  copy: document.querySelector('.code-copy-input'),
+  paste: document.querySelector('.code-paste-input')
+}
+
+buttons.share.addEventListener('click', function(e) {
+  containers.choose.className += ' dn'
+  containers.share.className += ' db'
+  startHandshake(false)
+})
+
+buttons.join.addEventListener('click', function(e) {
+  containers.choose.className += ' dn'
+  containers.join.className += ' db'
+  startHandshake(true)
+})
 
 var constraints = {
   audio: false,
@@ -24,52 +54,55 @@ var constraints = {
   }
 }
 
-if (REMOTECONTROL) {
-  var peer = new SimplePeer({ trickle: false })
-  console.log('client peer')
-  handleSignal(peer)
-} else {
-  robot = require('./robot.js')
-  navigator.webkitGetUserMedia(constraints, function(stream) {
-    var peer = new SimplePeer({ initiator: true, stream: stream, trickle: false })
-    console.log('host peer', peer)
-    handleSignal(peer)
-  }, function(e) {
-    if (e.code == e.PERMISSION_DENIED) {
-      console.error(e)
-      throw new Error('SCREENSHARING PERMISSION DENIED')
-    }
-  }) 
+function startHandshake(remote) {
+  if (remote) {
+    var peer = new SimplePeer({ trickle: false })
+    console.log('client peer')
+    handleSignal(peer, remote)
+  } else {
+    robot = require('./robot.js')
+    navigator.webkitGetUserMedia(constraints, function(stream) {
+      var peer = new SimplePeer({ initiator: true, stream: stream, trickle: false })
+      console.log('host peer', peer)
+      handleSignal(peer, remote)
+    }, function(e) {
+      if (e.code == e.PERMISSION_DENIED) {
+        console.error(e)
+        throw new Error('SCREENSHARING PERMISSION DENIED')
+      }
+    }) 
+  }
 }
 
-
-function handleSignal(peer) {
+function handleSignal(peer, remote) {
   window.peer = peer
   peer.on('signal', function (data) {
     // sdp is ~2.5k usually, that's too big for a URL, so we zlib deflate it
     zlib.deflate(JSON.stringify(data), function(err, deflated) {
       var connectionString = deflated.toString('base64')
       var code = encodeURIComponent(connectionString)
-      document.querySelector('input').value = code
-      document.querySelector('.copy').addEventListener('click', function(e) {
+      inputs.copy.value = code
+      buttons.copy.addEventListener('click', function(e) {
         e.preventDefault()
         clipboard.writeText(code)
       })
     })
   })
   
-  document.querySelector('.load').addEventListener('click', function(e) {
+  buttons.paste.addEventListener('click', function(e) {
     e.preventDefault()
-    var code = clipboard.readText()
+    var code = inputs.paste.value
+    if (!code) return
     code = decodeURIComponent(code)
     zlib.inflate(new Buffer(code, 'base64'), function(err, inflated) {
+      if (err) return
       peer.signal(JSON.parse(inflated.toString()))
     })
   })
 
   peer.on('data', function(data) {
     console.log(JSON.stringify(data))
-    configForm.className = 'inputs hidden'
+    containers.content.className += ' dn'
     if (robot) robot(data)
   })
 
@@ -77,8 +110,8 @@ function handleSignal(peer) {
   else peer.on('connect', onConnect)
 
   function onConnect() {
-    configForm.className = 'inputs hidden' // hide ui
-    if (!REMOTECONTROL) return
+    containers.content.className += ' dn' // hide ui
+    if (!remote) return
     console.log('start sending...')
     
     window.addEventListener('mousedown', function mousedown (e) {
@@ -121,8 +154,7 @@ function handleSignal(peer) {
     video = document.createElement('video')
     video.src = window.URL.createObjectURL(stream)
     video.autoplay = true
-    var container = document.querySelector('.container')
-    container.appendChild(video)
+    containers.video.appendChild(video)
   })
 }
 

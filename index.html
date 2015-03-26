@@ -1,25 +1,69 @@
 <!DOCTYPE HTML>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>screenshare</title>
-    <style>
-      html, body {margin: 0; padding: 0;}
-      video { width: 100%; height: 100%; margin: 0; padding: 0; }
-      p { margin: 20px; }
-      .hidden { display: none; }
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <title>ScreenCat</title>
+    <meta name="author" content="max ogden">
+    <meta name="description" content="cool appz">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="css/tachyons.css">
+    <style type="text/css">
+      .btn {border-radius: 0; cursor: pointer; cursor: hand;}
     </style>
 </head>
-<body>
-  <div class="container"></div>
-  <div class="inputs">
-    <p>
-      <input></input> <a class="copy" href="#">copy</a>
-    </p>
-    <p>
-      <a class="load" href="#">load from clipboard</a>
-    </p>
+<body class="wi-100">
+  <div class="content-container">
+    <header class="bb b--light-gray pvm">
+      <div class="center mw8 phm phl-ns">
+        <h1 class="f3 book dib prm man">ScreenCat</h1>
+        <div class="fr">
+          <a class="small link tc pas btn">Quit</a>
+        </div>
+      </div>
+    </header>
+    <main class="center mw8 phm phl-ns ptl">
+      <div class="choose-container">
+        <div class="cr" style="overflow: auto;">
+          <p class="mbl">If you share your screen the remote person will have full access to your desktop, mouse and keyboard.</p>
+          <div class="w-50" style="float: left; display: block;">
+            <a class="share-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mrm">Share Your Screen</a>
+          </div>
+          <div class="w-50" style="float: left; display: block;">
+            <a class="join-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mrm">Join Screen With Code</a>
+          </div>
+        </div>
+      </div>
+      
+      <div class="share-container dn">
+        <h2 class="f4 ttu book">Share</h2>
+        <div class="cr" style="overflow: auto;">
+          <div class="w-80" style="float: left; display: block;">
+            <input class="code-copy-input pam brs ba b--light-gray w-100 mw-fill"></input>
+          </div>
+          <div class="w-20" style="float: left; display: block;">
+            <div class="code-copy-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">Copy</div>
+          </div>
+        </div>
+        <p class="mbx">Send this code to the person you want to share your screen with</p>
+      </div>
+      <div class="join-container dn">
+        <h2 class="f4 ttu book cl">join</h2>
+        <div class="cr" style="overflow: auto;">
+          <div class="w-80" style="float: left; display: block;">
+            <input class="code-paste-input pam brs ba b--light-gray w-100 mw-fill"></input>
+          </div>
+          <div class="w-20" style="float: left; display: block;">
+            <div class="code-paste-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">Connect</div>
+          </div>
+        </div>
+        <p>Enter a code to connect to a remote screen</p>
+      </div>
+      
+    </main>
   </div>
+
+  <div class="video-container"></div>
   <script src="index.js"></script>
 </body>
 </html>

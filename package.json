@@ -11,7 +11,7 @@
   "license": "BSD",
   "dependencies": {
     "debug": "^2.1.0",
-    "menubar": "^2.0.2",
+    "menubar": "^2.0.3",
     "robotjs": "maxogden/robotjs#keyupdown",
     "simple-peer": "^4.0.4",
     "throttleit": "^1.0.0",
@@ -20,7 +20,8 @@
   "devDependencies": {
     "atom-shell": "^0.22.1",
     "atom-shell-packager": "^1.2.0",
-    "gh-pages-deploy": "^0.3.0"
+    "gh-pages-deploy": "^0.3.0",
+    "tachyons": "^1.2.0"
   },
   "repository": {
     "type": "git",
