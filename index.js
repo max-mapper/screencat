@@ -61,11 +61,11 @@ buttons.back.addEventListener('click', function (e) {
   hide(buttons.back)
 })
 
-function show(ele) {
+function show (ele) {
   ele.classList.remove('dn')
 }
 
-function hide(ele) {
+function hide (ele) {
   ele.classList.add('dn')
   ele.classList.remove('db')
 }
