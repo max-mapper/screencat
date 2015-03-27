@@ -12,3 +12,7 @@
 .cr {
   overflow: auto;
 }
+
+.video-container video {
+  width: 100%;
+}
