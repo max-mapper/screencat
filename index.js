@@ -27,7 +27,8 @@ var buttons = {
   join: document.querySelector('.join-button'),
   copy: document.querySelector('.code-copy-button'),
   paste: document.querySelector('.code-paste-button'),
-  quit: document.querySelector('.quit-button')
+  quit: document.querySelector('.quit-button'),
+  back: document.querySelector('.back-button')
 }
 
 var inputs = {
@@ -36,20 +37,38 @@ var inputs = {
 }
 
 buttons.share.addEventListener('click', function (e) {
-  containers.choose.className += ' dn'
-  containers.share.className += ' db'
+  containers.share.classList.add('db')
+  hide(containers.choose)
+  show(buttons.back)
   startHandshake(false)
 })
 
 buttons.join.addEventListener('click', function (e) {
-  containers.choose.className += ' dn'
-  containers.join.className += ' db'
+  containers.join.classList.add('db')
+  hide(containers.choose)
+  show(buttons.back)
   startHandshake(true)
 })
 
 buttons.quit.addEventListener('click', function (e) {
   ipc.send('terminate')
 })
+
+buttons.back.addEventListener('click', function (e) {
+  show(containers.choose)
+  hide(containers.share)
+  hide(containers.join)
+  hide(buttons.back)
+})
+
+function show (ele) {
+  ele.classList.remove('dn')
+}
+
+function hide (ele) {
+  ele.classList.add('dn')
+  ele.classList.remove('db')
+}
 
 var constraints = {
   audio: false,
