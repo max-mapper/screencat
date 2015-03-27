@@ -2,6 +2,7 @@ var createApp = require('./create.js')
 
 var ipc = require('ipc')
 var clipboard = require('clipboard')
+var shell = require('shell')
 
 var app = createApp({}, function connected (peer, isRemote) {
   if (isRemote) ipc.send('resize', {width: 800, height: 500})
@@ -38,3 +39,12 @@ app.ui.buttons.copy.addEventListener('click', function (e) {
   e.preventDefault()
   clipboard.writeText(app.ui.inputs.copy.value)
 })
+
+var externalLinks = document.querySelectorAll('.open-externally')
+for (var i = 0; i < externalLinks.length; i++) {
+  externalLinks[i].onclick = function (e) {
+    e.preventDefault()
+    shell.openExternal(e.target.href)
+    return false
+  }
+}
