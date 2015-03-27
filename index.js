@@ -2,8 +2,9 @@ var url = require('url')
 var zlib = require('zlib')
 
 var SimplePeer = require('simple-peer')
-
 var clipboard = require('clipboard')
+
+var request = require('request')
 
 var DEV = process.env.LOCALDEV || false
 
