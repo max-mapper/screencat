@@ -12,7 +12,7 @@ module.exports = function create (opts, connected) {
   var video, videoSize
 
   var ui = {}
-  
+
   ui.containers = {
     share: document.querySelector('.share-container'),
     join: document.querySelector('.join-container'),
@@ -55,9 +55,9 @@ module.exports = function create (opts, connected) {
     hide: hide,
     show: show
   }
-  
+
   return app
-  
+
   function startHandshake (remote) {
     if (remote) {
       var peer = new SimplePeer({ trickle: false })
@@ -151,7 +151,10 @@ module.exports = function create (opts, connected) {
           ui.inputs.paste.value = 'Error! ' + err.message
           return
         }
-        if (resp.statusCode !== 200) return ui.inputs.paste.value = "Invalid or expired invite code"
+        if (resp.statusCode !== 200) {
+          ui.inputs.paste.value = 'Invalid or expired invite code'
+          return
+        }
         console.log('sdp response length', data.length)
         inflate(data, function inflated (err, stringified) {
           if (err) return

@@ -1,10 +1,11 @@
+var path = require('path')
 var menubar = require('menubar')
 var ipc = require('ipc')
 
 var mb = menubar({
-  dir: __dirname,
   width: 700,
-  height: 300
+  height: 300,
+  index: 'file://' + path.join(process.cwd(), 'app.html')
 })
 
 mb.on('ready', function ready () {
