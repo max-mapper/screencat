@@ -12,7 +12,7 @@ To download the latest version visit the [releases page](https://github.com/maxo
 
 [![js-standard-style](https://raw.githubusercontent.com/feross/standard/master/badge.png)](https://github.com/feross/standard)
 
-[![Build Status](https://travis-ci.org/maxogden/screencat.svg?branch=master)](https://travis-ci.org/maxogden/screencat)
+[![Build Status](https://travis-ci.org/maxogden/ScreenCat.svg?branch=master)](https://travis-ci.org/maxogden/ScreenCat)
 
 ![screenshot.png](screenshot.png)
 
