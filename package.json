@@ -13,10 +13,12 @@
   "dependencies": {
     "menubar": "^2.0.3",
     "request": "^2.54.0",
-    "robotjs": "git+https://github.com/maxogden/robotjs#keyupdown",
     "simple-peer": "^4.0.4",
     "ssejson": "^1.2.0",
     "vkey": "^1.0.0"
+  },
+  "optionalDependencies": {
+    "robotjs": "git+https://github.com/maxogden/robotjs#keyupdown"
   },
   "devDependencies": {
     "atom-shell": "^0.22.1",
