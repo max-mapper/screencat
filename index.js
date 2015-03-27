@@ -5,8 +5,11 @@ var SimplePeer = require('simple-peer')
 var clipboard = require('clipboard')
 
 var request = require('request')
+var ssejson = require('ssejson')
 
 var DEV = process.env.LOCALDEV || false
+var server = 'http://catlobby.maxogden.com'
+// var server = 'http://localhost:5005'
 
 var video, videoSize, robot
 
@@ -15,7 +18,8 @@ var containers = {
   join: document.querySelector('.join-container'),
   content: document.querySelector('.content-container'),
   choose: document.querySelector('.choose-container'),
-  video: document.querySelector('.video-container')
+  video: document.querySelector('.video-container'),
+  sharing: document.querySelector('.sharing-container')
 }
 
 var buttons = {
@@ -65,6 +69,7 @@ function startHandshake(remote) {
     navigator.webkitGetUserMedia(constraints, function(stream) {
       var peer = new SimplePeer({ initiator: true, stream: stream, trickle: false })
       console.log('host peer', peer)
+      inputs.copy.value = 'Loading...'
       handleSignal(peer, remote)
     }, function(e) {
       if (e.code == e.PERMISSION_DENIED) {
@@ -77,27 +82,67 @@ function startHandshake(remote) {
 
 function handleSignal(peer, remote) {
   window.peer = peer
+  var pingName
+  
   peer.on('signal', function (data) {
     // sdp is ~2.5k usually, that's too big for a URL, so we zlib deflate it
-    zlib.deflate(JSON.stringify(data), function(err, deflated) {
+    var stringified = JSON.stringify(data)
+    zlib.deflate(stringified, function(err, deflated) {
       var connectionString = deflated.toString('base64')
       var code = encodeURIComponent(connectionString)
-      inputs.copy.value = code
-      buttons.copy.addEventListener('click', function(e) {
-        e.preventDefault()
-        clipboard.writeText(code)
-      })
+      console.log('sdp length', code.length)
+      
+      // upload pong sdp
+      if (remote) {
+        if (!pingName) return inputs.paste.value = 'Error! Please Quit'
+        request.post({body: code, uri: server + '/pong/' + pingName}, function resp (err, resp, body) {
+          if (err) return inputs.paste.value = err.message
+        })
+      }
+      
+      // upload initial sdp
+      if (!remote) {
+        request.post({body: code, uri: server + '/ping'}, function resp (err, resp, body) {
+          if (err) return inputs.copy.value = 'Error! ' + err.message
+          var ping = JSON.parse(body)
+          inputs.copy.value = ping.name
+          buttons.copy.addEventListener('click', function(e) {
+            e.preventDefault()
+            clipboard.writeText(ping.name)
+          })
+        
+          // listen for sdp pongs
+          var req = request(server + '/pongs/' + ping.name)
+            .pipe(ssejson.parse())
+            .on('data', function data (pong) {
+              console.log('pong sdp length', pong.length)
+              inflate(pong, function inflated (err, stringified) {
+                if (err) return inputs.copy.value = 'Error! Please Quit'
+                peer.signal(JSON.parse(stringified.toString()))
+                req.end()
+              })
+            })
+            .on('error', function error (err) {
+              inputs.copy.value = err.message
+            })
+        })
+      }
     })
   })
   
   buttons.paste.addEventListener('click', function(e) {
     e.preventDefault()
-    var code = inputs.paste.value
-    if (!code) return
-    code = decodeURIComponent(code)
-    zlib.inflate(new Buffer(code, 'base64'), function(err, inflated) {
-      if (err) return
-      peer.signal(JSON.parse(inflated.toString()))
+    var ping = inputs.paste.value
+    inputs.paste.value = 'Connecting...'
+    if (!ping) return
+    request({uri: server + '/ping/' + ping}, function resp (err, resp, data) {
+      if (err) return inputs.paste.value = 'Error! ' + err.message
+      console.log('sdp response length', data.length)
+      inflate(data, function inflated (err, stringified) {
+        if (err) return
+        pingName = ping
+        peer.signal(JSON.parse(stringified.toString()))
+      })
     })
   })
 
@@ -112,7 +157,10 @@ function handleSignal(peer, remote) {
 
   function onConnect() {
     containers.content.className += ' dn' // hide ui
-    if (!remote) return
+    if (!remote) {
+      containers.sharing.className += ' db' // show
+      return
+    }
     console.log('start sending...')
     
     window.addEventListener('mousedown', function mousedown (e) {
@@ -150,7 +198,12 @@ function handleSignal(peer, remote) {
       return data
     }
   }
-
+  
+  function inflate (data, cb) {
+    data = decodeURIComponent(data.toString())
+    zlib.inflate(new Buffer(data, 'base64'), cb)
+  }
+  
   peer.on('stream', function (stream) {
     video = document.createElement('video')
     video.src = window.URL.createObjectURL(stream)
