@@ -1,4 +1,5 @@
 var menubar = require('menubar')
+var ipc = require('ipc')
 
 var mb = menubar({
   dir: __dirname,
@@ -8,4 +9,8 @@ var mb = menubar({
 
 mb.on('ready', function ready () {
   console.log('ready')
+})
+
+ipc.on('terminate', function terminate (ev) {
+  mb.app.terminate()
 })

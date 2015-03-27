@@ -1,8 +1,9 @@
 var zlib = require('zlib')
 
-var SimplePeer = require('simple-peer')
+var ipc = require('ipc')
 var clipboard = require('clipboard')
 
+var SimplePeer = require('simple-peer')
 var request = require('request')
 var ssejson = require('ssejson')
 
@@ -25,7 +26,8 @@ var buttons = {
   share: document.querySelector('.share-button'),
   join: document.querySelector('.join-button'),
   copy: document.querySelector('.code-copy-button'),
-  paste: document.querySelector('.code-paste-button')
+  paste: document.querySelector('.code-paste-button'),
+  quit: document.querySelector('.quit-button')
 }
 
 var inputs = {
@@ -43,6 +45,10 @@ buttons.join.addEventListener('click', function (e) {
   containers.choose.className += ' dn'
   containers.join.className += ' db'
   startHandshake(true)
+})
+
+buttons.quit.addEventListener('click', function (e) {
+  ipc.send('terminate')
 })
 
 var constraints = {
