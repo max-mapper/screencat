@@ -1,36 +1,33 @@
 {
-  "name": "screenshare",
+  "name": "screencat",
   "version": "1.0.0",
   "description": "webrtc screensharing with shared mouse and keyboard",
   "main": "app.js",
   "scripts": {
     "app": "atom-shell app.js",
-    "build": "atom-shell-packager . Screenshare"
+    "build": "atom-shell-packager . ScreenCat --ignore=node_modules/atom-shell"
   },
   "author": "max ogden",
   "license": "BSD",
   "dependencies": {
-    "debug": "^2.1.0",
     "menubar": "^2.0.3",
     "request": "^2.54.0",
-    "robotjs": "maxogden/robotjs#keyupdown",
+    "robotjs": "git+https://github.com/maxogden/robotjs#keyupdown",
     "simple-peer": "^4.0.4",
     "ssejson": "^1.2.0",
-    "throttleit": "^1.0.0",
     "vkey": "^1.0.0"
   },
   "devDependencies": {
     "atom-shell": "^0.22.1",
     "atom-shell-packager": "^1.2.0",
-    "gh-pages-deploy": "^0.3.0",
     "tachyons": "^1.2.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/maxogden/screenshare.git"
+    "url": "https://github.com/maxogden/screencat.git"
   },
   "bugs": {
-    "url": "https://github.com/maxogden/screenshare/issues"
+    "url": "https://github.com/maxogden/screencat/issues"
   },
-  "homepage": "https://github.com/maxogden/screenshare"
+  "homepage": "https://github.com/maxogden/screencat"
 }
