@@ -1,0 +1,14 @@
+.left {
+  float: left;
+  display: block;
+}
+
+.btn {
+  border-radius: 0;
+  cursor: pointer;
+  cursor: hand;
+}
+
+.cr {
+  overflow: auto;
+}
