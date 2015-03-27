@@ -6,6 +6,7 @@
   "scripts": {
     "app": "atom-shell app.js",
     "build": "atom-shell-packager . ScreenCat --ignore=node_modules/atom-shell",
+    "dev": "wzrd remote.js:remote-bundle.js",
     "test": "standard"
   },
   "author": "max ogden",
@@ -24,7 +25,8 @@
     "atom-shell": "^0.22.1",
     "atom-shell-packager": "^1.2.0",
     "standard": "^3.3.0",
-    "tachyons": "^1.2.0"
+    "tachyons": "^1.2.0",
+    "wzrd": "^1.2.1"
   },
   "repository": {
     "type": "git",

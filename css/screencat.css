@@ -16,3 +16,7 @@
 .video-container video {
   width: 100%;
 }
+
+.content-container.w-50 {
+  margin: auto;
+}
