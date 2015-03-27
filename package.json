@@ -5,7 +5,8 @@
   "main": "app.js",
   "scripts": {
     "app": "atom-shell app.js",
-    "build": "atom-shell-packager . ScreenCat --ignore=node_modules/atom-shell"
+    "build": "atom-shell-packager . ScreenCat --ignore=node_modules/atom-shell",
+    "test": "standard"
   },
   "author": "max ogden",
   "license": "BSD",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "atom-shell": "^0.22.1",
     "atom-shell-packager": "^1.2.0",
+    "standard": "^3.3.0",
     "tachyons": "^1.2.0"
   },
   "repository": {
