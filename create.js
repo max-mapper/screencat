@@ -6,8 +6,8 @@ var ssejson = require('ssejson')
 
 module.exports = function create (opts, connected) {
   var DEV = process.env.LOCALDEV || false
-  // var server = 'http://catlobby.maxogden.com'
-  var server = 'http://localhost:5005'
+  var server = 'http://catlobby.maxogden.com'
+  // var server = 'http://localhost:5005'
 
   var video, videoSize
 
