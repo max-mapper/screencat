@@ -1,6 +1,7 @@
 var zlib = require('zlib')
 
 var SimplePeer = require('simple-peer')
+var nets = require('nets')
 var request = require('request')
 var ssejson = require('ssejson')
 
@@ -8,6 +9,7 @@ module.exports = function create (opts, connected) {
   var DEV = process.env.LOCALDEV || false
   var server = 'http://catlobby.maxogden.com'
   // var server = 'http://localhost:5005'
+  var remoteConfigUrl = 'http://cors.maxogden.com/http://instant.io/rtcConfig'
 
   var video, videoSize
 
@@ -28,7 +30,8 @@ module.exports = function create (opts, connected) {
     copy: document.querySelector('.code-copy-button'),
     paste: document.querySelector('.code-paste-button'),
     quit: document.querySelector('.quit-button'),
-    back: document.querySelector('.back-button')
+    back: document.querySelector('.back-button'),
+    destroy: document.querySelector('.destroy-button')
   }
 
   ui.inputs = {
@@ -41,9 +44,9 @@ module.exports = function create (opts, connected) {
     video: {
       mandatory: {
         chromeMediaSource: 'screen',
-        maxWidth: 1280,
-        maxHeight: 720,
-        maxFrameRate: 15
+        maxWidth: screen.availWidth,
+        maxHeight: screen.availHeight,
+        maxFrameRate: 25
       },
       optional: []
     }
@@ -59,20 +62,30 @@ module.exports = function create (opts, connected) {
   return app
 
   function startHandshake (remote) {
-    if (remote) {
-      var peer = new SimplePeer({ trickle: false })
-      console.log('client peer')
+    nets({url: remoteConfigUrl, json: true}, function gotConfig (err, resp, config) {
+      if (err || resp.statusCode > 299) config = undefined
+      if (remote) remotePeer(config)
+      else hostPeer(config)
+    })
+
+    function remotePeer (config) {
+      var peer = new SimplePeer({ trickle: false, config: config })
       handleSignal(peer, remote)
-    } else {
+    }
+
+    function hostPeer (config) {
       navigator.webkitGetUserMedia(constraints, function (stream) {
-        var peer = new SimplePeer({ initiator: true, stream: stream, trickle: false })
-        console.log('host peer', peer)
+        var peer = new SimplePeer({ initiator: true, stream: stream, trickle: false, config: config })
         ui.inputs.copy.value = 'Loading...'
         handleSignal(peer, remote)
       }, function (e) {
         if (e.code === e.PERMISSION_DENIED) {
+          console.error('permission denied')
           console.error(e)
           throw new Error('SCREENSHARING PERMISSION DENIED')
+        } else {
+          console.error('unknown error')
+          throw e
         }
       })
     }
@@ -87,12 +100,11 @@ module.exports = function create (opts, connected) {
       var stringified = JSON.stringify(data)
       zlib.deflate(stringified, function (err, deflated) {
         if (err) {
-          ui.containers.content.innerHTML = 'Error! Please Quit'
+          ui.containers.content.innerHTML = 'Error! Please Quit. ' + err.message
           return
         }
         var connectionString = deflated.toString('base64')
         var code = encodeURIComponent(connectionString)
-        console.log('sdp length', code.length)
 
         // upload pong sdp
         if (remote) {
@@ -100,7 +112,7 @@ module.exports = function create (opts, connected) {
             ui.inputs.paste.value = 'Error! Please Quit'
             return
           }
-          request.post({body: code, uri: server + '/pong/' + pingName}, function resp (err, resp, body) {
+          nets({method: 'POST', body: code, uri: server + '/pong/' + pingName}, function resp (err, resp, body) {
             if (err) {
               ui.inputs.paste.value = err.message
               return
@@ -110,7 +122,7 @@ module.exports = function create (opts, connected) {
 
         // upload initial sdp
         if (!remote) {
-          request.post({body: code, uri: server + '/ping'}, function resp (err, resp, body) {
+          nets({method: 'POST', body: code, uri: server + '/ping'}, function resp (err, resp, body) {
             if (err) {
               ui.inputs.copy.value = 'Error! ' + err.message
               return
@@ -121,27 +133,34 @@ module.exports = function create (opts, connected) {
             // listen for sdp pongs
             var req = request(server + '/pongs/' + ping.name)
               .pipe(ssejson.parse())
-              .on('data', function data (pong) {
-                console.log('pong sdp length', pong.length)
-                inflate(pong, function inflated (err, stringified) {
-                  if (err) {
-                    ui.inputs.copy.value = 'Error! Please Quit'
-                    return
-                  }
-                  peer.signal(JSON.parse(stringified.toString()))
-                  req.end()
-                })
+              .on('data', function data (pong) { 
+                // stupid backwards compat hack
+                if (pong[0] !== '{') return connect(pong)
+                // else assume ndjson status update, log for now
+                console.log(pong)
               })
               .on('error', function error (err) {
                 ui.inputs.copy.value = err.message
               })
+
+            function connect (pong) {
+              inflate(pong, function inflated (err, stringified) {
+                if (err) {
+                  ui.inputs.copy.value = 'Error! Please Quit'
+                  return
+                }
+                ui.inputs.copy.value = 'Attempting direct connection...'
+                peer.signal(JSON.parse(stringified.toString()))
+                req.end()
+              })
+            }
           })
         }
       })
     })
 
+    ui.inputs.paste.value = ""
     ui.buttons.paste.addEventListener('click', function (e) {
-      console.log('paste button click')
       e.preventDefault()
       var ping = ui.inputs.paste.value
       ui.inputs.paste.value = 'Connecting...'
@@ -155,7 +174,6 @@ module.exports = function create (opts, connected) {
           ui.inputs.paste.value = 'Invalid or expired invite code'
           return
         }
-        console.log('sdp response length', data.length)
         inflate(data, function inflated (err, stringified) {
           if (err) return
           pingName = ping
@@ -164,15 +182,35 @@ module.exports = function create (opts, connected) {
       })
     })
 
+    var queue = []
+
     peer.on('data', function (data) {
       console.log(JSON.stringify(data))
       app.hide(ui.containers.content)
-      if (app.robot) app.robot(data)
+      queue.push(data)
+      if (queue.length === 1) startQueue()
     })
-
+        
     if (peer.connected) onConnect()
     else peer.on('connect', onConnect)
-
+      
+    // magic queue that helps prevent weird key drop issues on the c++ side
+    function startQueue() {
+      if (queue.started) return
+      queue.started = true
+      queue.id = setInterval(function() {
+        var next = queue.shift()
+        if (!next) {
+          clearInterval(queue.id)
+          queue.started = false
+          return 
+        }
+        if (app.robot) {
+          app.robot(next)
+        }
+      }, 0)
+    }
+      
     function onConnect () {
       if (connected) connected(peer, remote)
       app.show(ui.containers.video)
@@ -181,17 +219,25 @@ module.exports = function create (opts, connected) {
         app.show(ui.containers.sharing)
         return
       }
-      console.log('start sending...')
 
-      window.addEventListener('mousedown', function mousedown (e) {
+      window.addEventListener('mousedown', mousedownListener)
+      window.addEventListener('keydown', keydownListener)
+      
+      peer.on('close', function cleanup () {
+        window.removeEventListener('mousedown', mousedownListener)
+        window.removeEventListener('keydown', keydownListener)
+      })
+      
+      function mousedownListener (e) {
         var data = getMouseData(e)
         data.click = true
 
         if (!DEV) peer.send(data)
-        else console.log('not sending mousedown')
-      })
+      }
 
-      window.addEventListener('keydown', function keydown (e) {
+      function keydownListener (e) {
+        e.preventDefault()
+  
         var data = {
           keyCode: e.keyCode,
           shift: e.shiftKey,
@@ -201,8 +247,7 @@ module.exports = function create (opts, connected) {
         }
 
         if (!DEV) peer.send(data)
-        else console.log('not sending keydown ' + e.keyCode)
-      })
+      }
 
       function getMouseData (e) {
         var data = {}
@@ -234,10 +279,12 @@ module.exports = function create (opts, connected) {
   }
 
   function show (ele) {
+    if (!ele) return
     ele.classList.remove('dn')
   }
 
   function hide (ele) {
+    if (!ele) return
     ele.classList.add('dn')
     ele.classList.remove('db')
   }
