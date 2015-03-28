@@ -1,6 +1,6 @@
 ### ScreenCat
 
-![Icon@2x.png](Icon@2x.png)
+![Icon@2x.png](img/Icon@2x.png)
 
 ScreenCat is an open source screen sharing + remote collaboration application, currently only for Mac OS. You can share your desktop with someone else while letting them share your mouse and keyboard remotely. Right now it is not as good as commercial alternatives, mostly because this initial prototype was written in 3 days. The big difference is that you can send PRs to make ScreenCat better!
 
@@ -14,11 +14,15 @@ To download the latest version visit the [releases page](https://github.com/maxo
 
 [![Build Status](https://travis-ci.org/maxogden/screencat.svg?branch=master)](https://travis-ci.org/maxogden/screencat)
 
-![screenshot.png](screenshot.png)
+![screenshot.png](img/screenshot.png)
 
 ### How it works
 
 The app itself is written in JS, HTML and CSS. The CSS is from [tachyons](https://www.npmjs.com/package/tachyons). The app is wrapped up in an [atom-shell](https://github.com/atom/atom-shell) application using the [menubar](https://www.npmjs.com/package/menubar) module.
+
+One really cool feature of ScreenCat is the ability to screenshare with a normal browser. Using our [remote control page](http://maxogden.github.io/screencat/remote) you can send your invite code to a web user and they can remote control your computer. Currently Google Chrome is recommended. You can also screenshare between 2 `ScreenCat.app` users.
+
+![remote-control.gif](img/remote-control.gif)
 
 The screensharing takes advantage of an experimental feature built in to Chromium's WebRTC implementation called `chromeMediaSource: 'screen'`. This lets you share the host computers entire desktop over a WebRTC video channel. On the remote end, you can render the data in a `<video>` element.
 
