@@ -5,7 +5,7 @@
   "main": "app.js",
   "scripts": {
     "app": "atom-shell app.js",
-    "build": "atom-shell-packager . ScreenCat --ignore=node_modules/atom-shell",
+    "build": "atom-shell-packager . ScreenCat --ignore=node_modules/atom-shell && cp img/Icon.icns ScreenCat.app/Contents/Resources/atom.icns",
     "dev": "wzrd remote.js:remote-bundle.js",
     "test": "standard"
   },
