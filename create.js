@@ -1,3 +1,4 @@
+/* global screen */
 var zlib = require('zlib')
 
 var SimplePeer = require('simple-peer')
@@ -5,7 +6,6 @@ var nets = require('nets')
 var request = require('request')
 var ssejson = require('ssejson')
 var getUserMedia = require('./get-user-media.js')()
-
 
 module.exports = function create (opts, connected) {
   var DEV = process.env.LOCALDEV || false
@@ -72,7 +72,7 @@ module.exports = function create (opts, connected) {
 
     function remotePeer (config) {
       ui.inputs.paste.value = 'Please allow or deny voice chat...'
-      
+
       getUserMedia({audio: true, video: false}, function (stream) {
         var peer = new SimplePeer({ trickle: false, config: config })
         peer._pc.addStream(stream)
@@ -101,8 +101,8 @@ module.exports = function create (opts, connected) {
       }, handleRTCErr)
     }
   }
-  
-  function handleRTCErr(err) {
+
+  function handleRTCErr (err) {
     if (err.code === err.PERMISSION_DENIED) {
       console.error('permission denied')
       console.error(err)
@@ -155,7 +155,7 @@ module.exports = function create (opts, connected) {
             // listen for sdp pongs
             var req = request(server + '/pongs/' + ping.name)
               .pipe(ssejson.parse())
-              .on('data', function data (pong) { 
+              .on('data', function data (pong) {
                 // stupid backwards compat hack
                 if (pong[0] !== '{') return connect(pong)
                 // else assume ndjson status update, log for now
@@ -181,7 +181,7 @@ module.exports = function create (opts, connected) {
       })
     })
 
-    ui.inputs.paste.value = ""
+    ui.inputs.paste.value = ''
     ui.buttons.paste.addEventListener('click', function (e) {
       e.preventDefault()
       var ping = ui.inputs.paste.value
@@ -212,27 +212,27 @@ module.exports = function create (opts, connected) {
       queue.push(data)
       if (queue.length === 1) startQueue()
     })
-        
+
     if (peer.connected) onConnect()
     else peer.on('connect', onConnect)
-      
+
     // magic queue that helps prevent weird key drop issues on the c++ side
-    function startQueue() {
+    function startQueue () {
       if (queue.started) return
       queue.started = true
-      queue.id = setInterval(function() {
+      queue.id = setInterval(function () {
         var next = queue.shift()
         if (!next) {
           clearInterval(queue.id)
           queue.started = false
-          return 
+          return
         }
         if (app.robot) {
           app.robot(next)
         }
       }, 0)
     }
-      
+
     function onConnect () {
       if (connected) connected(peer, remote)
       app.show(ui.containers.video)
@@ -244,13 +244,13 @@ module.exports = function create (opts, connected) {
 
       window.addEventListener('mousedown', mousedownListener)
       window.addEventListener('keydown', keydownListener)
-      
+
       peer.on('close', function cleanup () {
         window.removeEventListener('mousedown', mousedownListener)
         window.removeEventListener('keydown', keydownListener)
         ui.containers.video.innerHTML = ''
       })
-      
+
       function mousedownListener (e) {
         var data = getMouseData(e)
         data.click = true
@@ -260,7 +260,7 @@ module.exports = function create (opts, connected) {
 
       function keydownListener (e) {
         e.preventDefault()
-  
+
         var data = {
           keyCode: e.keyCode,
           shift: e.shiftKey,
@@ -301,8 +301,8 @@ module.exports = function create (opts, connected) {
         else console.log('unknown stream kind ' + kind)
       })
     })
-    
-    function renderVideo(stream) {
+
+    function renderVideo (stream) {
       video = document.createElement('video')
       video.src = window.URL.createObjectURL(stream)
       video.autoplay = true
@@ -311,7 +311,7 @@ module.exports = function create (opts, connected) {
       app.hide(ui.containers.video)
     }
 
-    function renderAudio(stream) {
+    function renderAudio (stream) {
       var audio = document.createElement('audio')
       audio.src = window.URL.createObjectURL(stream)
       audio.autoplay = true

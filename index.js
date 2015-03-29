@@ -9,13 +9,13 @@ var peer
 var app = createApp({}, function connected (newPeer, isRemote) {
   if (isRemote) ipc.send('resize', {width: 800, height: 500})
   peer = newPeer
-    
+
   peer.on('error', function error (err) {
     console.error('peer error')
     console.error(err)
-    ui.containers.content.innerHTML = 'Error connecting! Please Quit. ' + err.message
+    app.ui.containers.content.innerHTML = 'Error connecting! Please Quit. ' + err.message
   })
-  
+
   peer.on('close', function close () {
     showChoose()
   })
