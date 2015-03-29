@@ -90,7 +90,7 @@ module.exports = function create (opts, connected) {
     function hostPeer (config) {
       ui.inputs.copy.value = 'Loading...'
       // screensharing
-      getUserMedia({video: true, audio: false}, function (videoStream) {
+      getUserMedia(constraints, function (videoStream) {
         // audio
         getUserMedia({audio: true, video: false}, function (audioStream) {
           var peer = new SimplePeer({ initiator: true, trickle: false, config: config })
