@@ -13,6 +13,7 @@
   "license": "BSD",
   "dependencies": {
     "menubar": "^2.0.4",
+    "nets": "^3.1.0",
     "request": "^2.54.0",
     "simple-peer": "^4.0.4",
     "ssejson": "^1.2.0",
