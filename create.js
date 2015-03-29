@@ -4,6 +4,8 @@ var SimplePeer = require('simple-peer')
 var nets = require('nets')
 var request = require('request')
 var ssejson = require('ssejson')
+var getUserMedia = require('./get-user-media.js')()
+
 
 module.exports = function create (opts, connected) {
   var DEV = process.env.LOCALDEV || false
@@ -69,25 +71,45 @@ module.exports = function create (opts, connected) {
     })
 
     function remotePeer (config) {
-      var peer = new SimplePeer({ trickle: false, config: config })
-      handleSignal(peer, remote)
+      ui.inputs.paste.value = 'Please allow or deny voice chat...'
+      
+      getUserMedia({audio: true, video: false}, function (stream) {
+        var peer = new SimplePeer({ trickle: false, config: config })
+        peer._pc.addStream(stream)
+        handleSignal(peer, remote)
+      }, function error (err) {
+        if (err.code === err.PERMISSION_DENIED) {
+          var peer = new SimplePeer({ trickle: false, config: config })
+          handleSignal(peer, remote)
+        } else {
+          handleRTCErr(err)
+        }
+      })
     }
 
     function hostPeer (config) {
-      navigator.webkitGetUserMedia(constraints, function (stream) {
-        var peer = new SimplePeer({ initiator: true, stream: stream, trickle: false, config: config })
-        ui.inputs.copy.value = 'Loading...'
-        handleSignal(peer, remote)
-      }, function (e) {
-        if (e.code === e.PERMISSION_DENIED) {
-          console.error('permission denied')
-          console.error(e)
-          throw new Error('SCREENSHARING PERMISSION DENIED')
-        } else {
-          console.error('unknown error')
-          throw e
-        }
-      })
+      ui.inputs.copy.value = 'Loading...'
+      // screensharing
+      getUserMedia({video: true, audio: false}, function (videoStream) {
+        // audio
+        getUserMedia({audio: true, video: false}, function (audioStream) {
+          var peer = new SimplePeer({ initiator: true, trickle: false, config: config })
+          peer._pc.addStream(videoStream)
+          peer._pc.addStream(audioStream)
+          handleSignal(peer, remote)
+        }, handleRTCErr)
+      }, handleRTCErr)
+    }
+  }
+  
+  function handleRTCErr(err) {
+    if (err.code === err.PERMISSION_DENIED) {
+      console.error('permission denied')
+      console.error(err)
+      throw new Error('SCREENSHARING PERMISSION DENIED')
+    } else {
+      console.error('unknown error')
+      throw err
     }
   }
 
@@ -226,6 +248,7 @@ module.exports = function create (opts, connected) {
       peer.on('close', function cleanup () {
         window.removeEventListener('mousedown', mousedownListener)
         window.removeEventListener('keydown', keydownListener)
+        ui.containers.video.innerHTML = ''
       })
       
       function mousedownListener (e) {
@@ -270,12 +293,32 @@ module.exports = function create (opts, connected) {
     }
 
     peer.on('stream', function (stream) {
+      var tracks = stream.getTracks()
+      tracks.forEach(function each (track) {
+        var kind = track.kind
+        if (kind === 'audio') renderAudio(stream)
+        else if (kind === 'video') renderVideo(stream)
+        else console.log('unknown stream kind ' + kind)
+      })
+    })
+    
+    function renderVideo(stream) {
       video = document.createElement('video')
       video.src = window.URL.createObjectURL(stream)
       video.autoplay = true
+
       ui.containers.video.appendChild(video)
       app.hide(ui.containers.video)
-    })
+    }
+
+    function renderAudio(stream) {
+      var audio = document.createElement('audio')
+      audio.src = window.URL.createObjectURL(stream)
+      audio.autoplay = true
+
+      ui.containers.video.appendChild(audio)
+      app.hide(ui.containers.video)
+    }
   }
 
   function show (ele) {
