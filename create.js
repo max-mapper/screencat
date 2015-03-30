@@ -8,8 +8,8 @@ var getUserMedia = require('./get-user-media.js')()
 
 module.exports = function create (opts, connectedCb) {
   var DEV = process.env.LOCALDEV || false
-  // var server = 'http://catlobby.maxogden.com'
-  var server = 'http://localhost:5005'
+  var server = 'http://catlobby.maxogden.com'
+  // var server = 'http://localhost:5005'
   var remoteConfigUrl = 'http://instant.io/rtcConfig'
   if (process.browser) remoteConfigUrl = 'http://cors.maxogden.com/' + remoteConfigUrl
 
