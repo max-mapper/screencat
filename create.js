@@ -79,7 +79,7 @@ module.exports = function create (opts, connectedCb) {
         ui.inputs.paste.value = 'Connecting...'
         if (!room) return
         // ensure room is still open
-        nets({method: "GET", uri: server + '/v1/' + room}, function response (err, resp, data) {
+        nets({method: "POST", uri: server + '/v1/' + room + '/pong', json: {ready: true}}, function response (err, resp, data) {
           if (err) {
             ui.inputs.paste.value = 'Error! ' + err.message
             return
@@ -88,71 +88,73 @@ module.exports = function create (opts, connectedCb) {
             ui.inputs.paste.value = 'Invalid or expired invite code'
             return
           }
-          startRTC(room)
+          listenForPings(room)
         })
       })
-      
-      // try getusermedia and then upload sdp pong. this causes host to ping sdp back
-      function startRTC (room) {
-        ui.inputs.paste.value = 'Please allow or deny voice chat...'
-        var peer
-        getUserMedia({audio: true, video: false},
-          createPeer, 
-          function error (err) {
-            // screenshare even if remote doesnt wanna do audio
-            if (err.name === "PermissionDeniedError") {
-              createPeer()
-            } else {
-              handleRTCErr(err)
-            }
-          }
-        )
-        
-        function createPeer (audioStream) {
-          var constraints = {
-            optional: [],
-            mandatory: {
-                OfferToReceiveAudio: true,
-                OfferToReceiveVideo: true
-            }
-          }
-          var peer = new SimplePeer({ initiator: true, trickle: false, config: config })
-          if (audioStream) peer._pc.addStream(audioStream)
-          handleSignal(peer, remote, room)
-          
-          ui.inputs.paste.value = 'Waiting on other side...'
 
-          // listen for pings
-          var events = new EventSource(server + '/v1/' + room + '/pings')
-          events.onmessage = function onMessage (e) {
-            try {
-              var row = JSON.parse(e.data)
-            } catch (e) {
-              ui.inputs.copy.value = 'Error connecting. Please start over.'
-              var row = {}
-            }
-            if (!row.data) {
+      function listenForPings (room) {
+        ui.inputs.paste.value = 'Waiting on other side...'
+
+        // listen for pings
+        var events = new EventSource(server + '/v1/' + room + '/pings')
+        events.onmessage = function onMessage (e) {
+          try {
+            var row = JSON.parse(e.data)
+          } catch (e) {
+            ui.inputs.copy.value = 'Error connecting. Please start over.'
+            var row = {}
+          }
+
+          if (!row.data) {
+            return
+          }
+
+          inflate(row.data, function inflated (err, stringified) {
+            if (err) {
+              ui.inputs.copy.value = 'Error! Please Quit'
               return
             }
 
-            inflate(row.data, function inflated (err, stringified) {
+            getAudio(function got (err, audioStream) {
               if (err) {
-                ui.inputs.copy.value = 'Error! Please Quit'
+                handleRTCErr(err)
                 return
               }
+              var peer = new SimplePeer({ trickle: false, config: config })
+              if (audioStream) peer._pc.addStream(audioStream)
+              handleSignal(peer, remote, room)
               peer.signal(JSON.parse(stringified.toString()))
             })
-         
-            events.close()
-          }
-        
-          events.onerror = function onError (e) {
-            ui.inputs.copy.value = 'Error connecting. Please start over.'
-            events.close()
-          }
+          })
+
+          events.close()
+        }
+
+        events.onerror = function onError (e) {
+          ui.inputs.copy.value = 'Error connecting. Please start over.'
+          events.close()
         }
       }
+
+      // try getusermedia and then upload sdp pong. this causes host to ping sdp back
+      function getAudio (cb) {
+        ui.inputs.paste.value = 'Please allow or deny voice chat...'
+        getUserMedia({audio: true, video: false},
+          function ok (stream) {
+            cb(null, stream)
+          },
+          function error (err) {
+            // screenshare even if remote doesnt wanna do audio
+            if (err.name === "PermissionDeniedError") {
+              cb()
+            } else {
+              cb(err)
+            }
+          }
+        )
+      }
     }
+
 
     function hostPeer (config) {
       ui.inputs.copy.value = 'Loading...'
@@ -174,37 +176,43 @@ module.exports = function create (opts, connectedCb) {
             ui.inputs.copy.value = 'Error connecting. Please start over.'
             var row = {}
           }
-          if (!row.data) {
-            return
+
+          // other side is ready
+          if (row.ready) {
+            connect(row.data, room.name)
           }
-          connect(row.data, room.name)
-          events.close()
+
+          // sdp from other side
+          if (row.data) {
+            inflate(row.data, function inflated (err, stringified) {
+              if (err) {
+                ui.inputs.copy.value = 'Error! Please Quit'
+                return
+              }
+
+              peer.signal(JSON.parse(stringified.toString()))
+            })
+            events.close()
+          }
         }
-        
+
         events.onerror = function onError (e) {
           ui.inputs.copy.value = 'Error connecting. Please start over.'
           events.close()
         }
 
         function connect (pong, room) {
-          inflate(pong, function inflated (err, stringified) {
-            if (err) {
-              ui.inputs.copy.value = 'Error! Please Quit'
-              return
-            }
-            // screensharing
-            getUserMedia(constraints, function (videoStream) {
-              // audio
-              getUserMedia({audio: true, video: false}, function (audioStream) {
-                var peer = new SimplePeer({ trickle: false, config: config })
-                peer._pc.addStream(videoStream)
-                // peer._pc.addStream(audioStream)
-                ui.inputs.copy.value = 'Waiting for other side...'
-                peer.signal(JSON.parse(stringified.toString()))
-                handleSignal(peer, false, room)
-              }, handleRTCErr)
+          // screensharing
+          getUserMedia(constraints, function (videoStream) {
+            // audio
+            getUserMedia({audio: true, video: false}, function (audioStream) {
+              var peer = new SimplePeer({ initiator: true, trickle: false, config: config })
+              peer._pc.addStream(videoStream)
+              peer._pc.addStream(audioStream)
+              ui.inputs.copy.value = 'Waiting for other side...'
+              handleSignal(peer, false, room)
             }, handleRTCErr)
-          })
+          }, handleRTCErr)
         }
       })
     }
@@ -223,7 +231,7 @@ module.exports = function create (opts, connectedCb) {
 
   function handleSignal (peer, remote, room) {
     window.peer = peer
-    
+
     peer.on('signal', function onSignal (sdp) {
       deflate(sdp, function deflated (err, data) {
         if (err) {
@@ -258,14 +266,13 @@ module.exports = function create (opts, connectedCb) {
         })
       })
     })
-    
+
     peer.on('stream', function (stream) {
-      var tracks = stream.getTracks()
-      tracks.forEach(function each (track) {
-        var kind = track.kind
-        if (kind === 'audio') renderAudio(stream)
-        else if (kind === 'video') renderVideo(stream)
-        else console.log('unknown stream kind ' + kind)
+      stream.getAudioTracks().forEach(function each (track) {
+        renderAudio(stream)
+      })
+      stream.getVideoTracks().forEach(function each (track) {
+        renderVideo(stream)
       })
     })
 
@@ -280,9 +287,9 @@ module.exports = function create (opts, connectedCb) {
         app.show(ui.containers.sharing)
         return
       }
-      
+
       var queue = []
-  
+
       peer.on('data', function (data) {
         console.log(JSON.stringify(data))
         app.hide(ui.containers.content)
@@ -353,7 +360,7 @@ module.exports = function create (opts, connectedCb) {
     }
 
   }
-  
+
   function renderVideo (stream) {
     video = document.createElement('video')
     video.src = window.URL.createObjectURL(stream)
@@ -371,12 +378,12 @@ module.exports = function create (opts, connectedCb) {
     ui.containers.video.appendChild(audio)
     app.hide(ui.containers.video)
   }
-  
+
   function inflate (data, cb) {
     data = decodeURIComponent(data.toString())
     zlib.inflate(new Buffer(data, 'base64'), cb)
   }
-  
+
   function deflate (data, cb) {
     // sdp is ~2.5k usually, that's too big for a URL, so we zlib deflate it
     var stringified = JSON.stringify(data)
