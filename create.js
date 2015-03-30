@@ -231,7 +231,7 @@ module.exports = function create (opts, connectedCb) {
   }
 
   function handleSignal (peer, remote, room) {
-    window.PEER = peer
+    window.PEER = peer // for debugging
     var queue = []
 
     peer.on('signal', function onSignal (sdp) {
