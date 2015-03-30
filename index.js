@@ -34,7 +34,7 @@ app.ui.buttons.share.addEventListener('click', function (e) {
   app.show(app.ui.containers.share)
   app.hide(app.ui.containers.choose)
   app.show(app.ui.buttons.back)
-  app.robot = require('./robot.js')
+  if (!app.robot) app.robot = require('./robot.js')
   app.startHandshake(false)
 })
 
@@ -47,6 +47,11 @@ app.ui.buttons.join.addEventListener('click', function (e) {
 })
 
 app.ui.buttons.back.addEventListener('click', function (e) {
+  // HACK do a clone-swap to remove listeners
+  var el = ui.buttons.paste
+  var elClone = el.cloneNode(true)
+  el.parentNode.replaceChild(elClone, el)
+  
   showChoose()
 })
 

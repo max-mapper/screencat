@@ -29,6 +29,10 @@ function showChoose () {
   app.hide(app.ui.buttons.back)
 }
 
-app.ui.inputs.paste.value = 'Loading...'
-var remote = true
-app.startHandshake(remote)
+function initialize () {
+  app.ui.inputs.paste.value = 'Loading...'
+  var remote = true
+  app.startHandshake(remote)  
+}
+
+initialize()

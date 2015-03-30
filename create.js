@@ -6,10 +6,9 @@ var nets = require('nets')
 var getUserMedia = require('./get-user-media.js')()
 
 module.exports = function create (opts, connectedCb) {
-  var DEV = process.env.LOCALDEV || false
   var server = 'http://catlobby.maxogden.com'
   // var server = 'http://localhost:5005'
-  var remoteConfigUrl = 'http://instant.io/rtcConfig'
+  var remoteConfigUrl = 'https://instant.io/rtcConfig'
   if (process.browser) remoteConfigUrl = 'http://cors.maxogden.com/' + remoteConfigUrl
 
   var video, videoSize
@@ -72,7 +71,9 @@ module.exports = function create (opts, connectedCb) {
     function remotePeer (config) {
       // first, wait for user to enter room name
       ui.inputs.paste.value = ''
-      ui.buttons.paste.addEventListener('click', function (e) {
+      ui.buttons.paste.addEventListener('click', onJoinClick)
+      
+      function onJoinClick (e) {
         e.preventDefault()
         var room = ui.inputs.paste.value
         ui.inputs.paste.value = 'Connecting...'
@@ -89,7 +90,7 @@ module.exports = function create (opts, connectedCb) {
           }
           listenForPings(room)
         })
-      })
+      }
 
       function listenForPings (room) {
         ui.inputs.paste.value = 'Waiting on other side...'
@@ -122,7 +123,7 @@ module.exports = function create (opts, connectedCb) {
               }
               var peer = new SimplePeer({ trickle: false, config: config })
               if (audioStream) peer._pc.addStream(audioStream)
-              handleSignal(peer, remote, room)
+              handleSignal(peer, true, room)
               peer.signal(JSON.parse(stringified.toString()))
             })
           })
@@ -282,21 +283,23 @@ module.exports = function create (opts, connectedCb) {
     else peer.on('connect', onConnect)
 
     function onConnect () {
+      console.log('ONCONNECT', remote)
       if (connectedCb) connectedCb(peer, remote)
       app.show(ui.containers.video)
       app.hide(ui.containers.content)
+
       if (!remote) {
         app.show(ui.containers.sharing)
+        
+        peer.on('data', function (data) {
+          console.log('got data', JSON.stringify(data))
+          app.hide(ui.containers.content)
+          queue.push(data)
+          if (queue.length === 1) startQueue()
+        })
         return
       }
-
-      peer.on('data', function (data) {
-        console.log(JSON.stringify(data))
-        app.hide(ui.containers.content)
-        queue.push(data)
-        if (queue.length === 1) startQueue()
-      })
-
+      
       window.addEventListener('mousedown', mousedownListener)
       window.addEventListener('keydown', keydownListener)
 
@@ -309,8 +312,8 @@ module.exports = function create (opts, connectedCb) {
       function mousedownListener (e) {
         var data = getMouseData(e)
         data.click = true
-
-        if (!DEV) peer.send(data)
+        console.log('send mouse', data)
+        peer.send(data)
       }
 
       function keydownListener (e) {
@@ -324,7 +327,8 @@ module.exports = function create (opts, connectedCb) {
           alt: e.altKey
         }
 
-        if (!DEV) peer.send(data)
+        console.log('send key', data)
+        peer.send(data)
       }
 
       function getMouseData (e) {
