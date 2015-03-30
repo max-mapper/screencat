@@ -1,9 +1,8 @@
-/* global screen */
+/* global screen, EventSource */
 var zlib = require('zlib')
 
 var SimplePeer = require('simple-peer')
 var nets = require('nets')
-var ssejson = require('ssejson')
 var getUserMedia = require('./get-user-media.js')()
 
 module.exports = function create (opts, connectedCb) {
@@ -79,7 +78,7 @@ module.exports = function create (opts, connectedCb) {
         ui.inputs.paste.value = 'Connecting...'
         if (!room) return
         // ensure room is still open
-        nets({method: "POST", uri: server + '/v1/' + room + '/pong', json: {ready: true}}, function response (err, resp, data) {
+        nets({method: 'POST', uri: server + '/v1/' + room + '/pong', json: {ready: true}}, function response (err, resp, data) {
           if (err) {
             ui.inputs.paste.value = 'Error! ' + err.message
             return
@@ -98,11 +97,12 @@ module.exports = function create (opts, connectedCb) {
         // listen for pings
         var events = new EventSource(server + '/v1/' + room + '/pings')
         events.onmessage = function onMessage (e) {
+          var row
           try {
-            var row = JSON.parse(e.data)
+            row = JSON.parse(e.data)
           } catch (e) {
             ui.inputs.copy.value = 'Error connecting. Please start over.'
-            var row = {}
+            row = {}
           }
 
           if (!row.data) {
@@ -145,7 +145,7 @@ module.exports = function create (opts, connectedCb) {
           },
           function error (err) {
             // screenshare even if remote doesnt wanna do audio
-            if (err.name === "PermissionDeniedError") {
+            if (err.name === 'PermissionDeniedError') {
               cb()
             } else {
               cb(err)
@@ -155,8 +155,8 @@ module.exports = function create (opts, connectedCb) {
       }
     }
 
-
     function hostPeer (config) {
+      var peer
       ui.inputs.copy.value = 'Loading...'
       // create room
       nets({method: 'POST', uri: server + '/v1'}, function response (err, resp, body) {
@@ -170,16 +170,17 @@ module.exports = function create (opts, connectedCb) {
         // listen for pongs
         var events = new EventSource(server + '/v1/' + room.name + '/pongs')
         events.onmessage = function onMessage (e) {
+          var row
           try {
-            var row = JSON.parse(e.data)
+            row = JSON.parse(e.data)
           } catch (e) {
             ui.inputs.copy.value = 'Error connecting. Please start over.'
-            var row = {}
+            row = {}
           }
 
           // other side is ready
           if (row.ready) {
-            connect(row.data, room.name)
+            connect(row.data)
           }
 
           // sdp from other side
@@ -194,32 +195,32 @@ module.exports = function create (opts, connectedCb) {
             })
             events.close()
           }
+
+          function connect (pong) {
+            // screensharing
+            getUserMedia(constraints, function (videoStream) {
+              // audio
+              getUserMedia({audio: true, video: false}, function (audioStream) {
+                peer = new SimplePeer({ initiator: true, trickle: false, config: config })
+                peer._pc.addStream(videoStream)
+                peer._pc.addStream(audioStream)
+                ui.inputs.copy.value = 'Waiting for other side...'
+                handleSignal(peer, false, room.name)
+              }, handleRTCErr)
+            }, handleRTCErr)
+          }
         }
 
         events.onerror = function onError (e) {
           ui.inputs.copy.value = 'Error connecting. Please start over.'
           events.close()
         }
-
-        function connect (pong, room) {
-          // screensharing
-          getUserMedia(constraints, function (videoStream) {
-            // audio
-            getUserMedia({audio: true, video: false}, function (audioStream) {
-              var peer = new SimplePeer({ initiator: true, trickle: false, config: config })
-              peer._pc.addStream(videoStream)
-              peer._pc.addStream(audioStream)
-              ui.inputs.copy.value = 'Waiting for other side...'
-              handleSignal(peer, false, room)
-            }, handleRTCErr)
-          }, handleRTCErr)
-        }
       })
     }
   }
 
   function handleRTCErr (err) {
-    if (err.name === "PermissionDeniedError") {
+    if (err.name === 'PermissionDeniedError') {
       console.error('permission denied')
       console.error(err)
       throw new Error('SCREENSHARING PERMISSION DENIED')
@@ -230,7 +231,8 @@ module.exports = function create (opts, connectedCb) {
   }
 
   function handleSignal (peer, remote, room) {
-    window.peer = peer
+    window.PEER = peer
+    var queue = []
 
     peer.on('signal', function onSignal (sdp) {
       deflate(sdp, function deflated (err, data) {
@@ -287,8 +289,6 @@ module.exports = function create (opts, connectedCb) {
         app.show(ui.containers.sharing)
         return
       }
-
-      var queue = []
 
       peer.on('data', function (data) {
         console.log(JSON.stringify(data))
@@ -358,7 +358,6 @@ module.exports = function create (opts, connectedCb) {
         }
       }, 0)
     }
-
   }
 
   function renderVideo (stream) {
