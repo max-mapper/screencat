@@ -283,7 +283,6 @@ module.exports = function create (opts, connectedCb) {
     else peer.on('connect', onConnect)
 
     function onConnect () {
-      console.log('ONCONNECT', remote)
       if (connectedCb) connectedCb(peer, remote)
       app.show(ui.containers.video)
       app.hide(ui.containers.content)
