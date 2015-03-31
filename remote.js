@@ -1,8 +1,8 @@
 var createApp = require('./create.js')
 
 var app = createApp({}, function connected (peer, isRemote) {
-  app.ui.inputs.paste.value = ""
-  
+  app.ui.inputs.paste.value = ''
+
   peer.on('error', function error (err) {
     console.error('peer error')
     console.error(err)
@@ -10,7 +10,7 @@ var app = createApp({}, function connected (peer, isRemote) {
     app.show(app.ui.containers.content)
     app.ui.containers.join.innerHTML = 'Error connecting! Please Quit. ' + err.message
   })
-  
+
   peer.on('close', function close () {
     app.hide(app.ui.containers.video)
     app.show(app.ui.containers.content)
@@ -29,6 +29,10 @@ function showChoose () {
   app.hide(app.ui.buttons.back)
 }
 
-app.ui.inputs.paste.value = "Loading..."
-var remote = true
-app.startHandshake(remote)
+function initialize () {
+  app.ui.inputs.paste.value = 'Loading...'
+  var remote = true
+  app.startHandshake(remote)  
+}
+
+initialize()

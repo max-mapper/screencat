@@ -14,7 +14,6 @@
   "dependencies": {
     "menubar": "^2.0.4",
     "nets": "^3.1.0",
-    "request": "^2.54.0",
     "simple-peer": "^4.0.4",
     "ssejson": "^1.2.0",
     "vkey": "^1.0.0"
@@ -25,6 +24,7 @@
   "devDependencies": {
     "atom-shell": "^0.22.1",
     "atom-shell-packager": "^1.2.0",
+    "browserify": "^9.0.3",
     "standard": "^3.3.0",
     "tachyons": "^1.2.0",
     "wzrd": "^1.2.1"
