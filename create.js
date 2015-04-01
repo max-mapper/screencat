@@ -72,7 +72,7 @@ module.exports = function create (opts, connectedCb) {
       // first, wait for user to enter room name
       ui.inputs.paste.value = ''
       ui.buttons.paste.addEventListener('click', onJoinClick)
-      
+
       function onJoinClick (e) {
         e.preventDefault()
         var room = ui.inputs.paste.value
@@ -289,7 +289,7 @@ module.exports = function create (opts, connectedCb) {
 
       if (!remote) {
         app.show(ui.containers.sharing)
-        
+
         peer.on('data', function (data) {
           console.log('got data', JSON.stringify(data))
           app.hide(ui.containers.content)
@@ -298,7 +298,7 @@ module.exports = function create (opts, connectedCb) {
         })
         return
       }
-      
+
       window.addEventListener('mousedown', mousedownListener)
       window.addEventListener('keydown', keydownListener)
 

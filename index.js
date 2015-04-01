@@ -48,10 +48,10 @@ app.ui.buttons.join.addEventListener('click', function (e) {
 
 app.ui.buttons.back.addEventListener('click', function (e) {
   // HACK do a clone-swap to remove listeners
-  var el = ui.buttons.paste
+  var el = app.ui.buttons.paste
   var elClone = el.cloneNode(true)
   el.parentNode.replaceChild(elClone, el)
-  
+
   showChoose()
 })
 
