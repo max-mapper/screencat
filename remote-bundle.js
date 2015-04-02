@@ -74,7 +74,7 @@ module.exports = function create (opts, connectedCb) {
       // first, wait for user to enter room name
       ui.inputs.paste.value = ''
       ui.buttons.paste.addEventListener('click', onJoinClick)
-      
+
       function onJoinClick (e) {
         e.preventDefault()
         var room = ui.inputs.paste.value
@@ -100,6 +100,7 @@ module.exports = function create (opts, connectedCb) {
         // listen for pings
         var events = new EventSource(server + '/v1/' + room + '/pings')
         events.onmessage = function onMessage (e) {
+          console.log('pings onmessage', e.data)
           var row
           try {
             row = JSON.parse(e.data)
@@ -167,12 +168,14 @@ module.exports = function create (opts, connectedCb) {
           ui.inputs.copy.value = 'Error! ' + err.message
           return
         }
+
         var room = JSON.parse(body)
         ui.inputs.copy.value = room.name
 
         // listen for pongs
         var events = new EventSource(server + '/v1/' + room.name + '/pongs')
         events.onmessage = function onMessage (e) {
+          console.log('pongs onmessage', e.data)
           var row
           try {
             row = JSON.parse(e.data)
@@ -257,6 +260,7 @@ module.exports = function create (opts, connectedCb) {
         if (remote) uploadURL += '/pong'
         else uploadURL += '/ping'
 
+        console.log('POST', uploadURL, data)
         nets({method: 'POST', json: {data: data}, uri: uploadURL}, function response (err, resp, body) {
           if (err) {
             if (remote) ui.inputs.paste.value = err.message
@@ -291,7 +295,7 @@ module.exports = function create (opts, connectedCb) {
 
       if (!remote) {
         app.show(ui.containers.sharing)
-        
+
         peer.on('data', function (data) {
           console.log('got data', JSON.stringify(data))
           app.hide(ui.containers.content)
@@ -300,7 +304,7 @@ module.exports = function create (opts, connectedCb) {
         })
         return
       }
-      
+
       window.addEventListener('mousedown', mousedownListener)
       window.addEventListener('keydown', keydownListener)
 
@@ -2083,7 +2087,7 @@ function showChoose () {
 function initialize () {
   app.ui.inputs.paste.value = 'Loading...'
   var remote = true
-  app.startHandshake(remote)  
+  app.startHandshake(remote)
 }
 
 initialize()
