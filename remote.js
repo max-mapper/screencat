@@ -32,7 +32,7 @@ function showChoose () {
 function initialize () {
   app.ui.inputs.paste.value = 'Loading...'
   var remote = true
-  app.startHandshake(remote)  
+  app.startHandshake(remote)
 }
 
 initialize()
