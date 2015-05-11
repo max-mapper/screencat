@@ -1,60 +1,55 @@
 <!DOCTYPE HTML>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
-    <title>ScreenCat</title>
-    <meta name="author" content="max ogden">
-    <meta name="description" content="cool appz">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="css/tachyons.css" />
-    <link rel="stylesheet" href="css/screencat.css" />
-    <style type="text/css">
-      .video-container {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        text-align: center;
-      }
-      
-      .video-container header {
-        overflow: auto;
-        line-height: 1rem;
-      }
-    </style>
-</head>
-<body class="wi-100">
-
-  <div class="content-container">
-    <header class="bb b--light-gray pvm">
-      <div class="center mw8 phm phl-ns">
-        <h1 class="f3 book dib prm man">ScreenCat</h1>
-        <div class="fr">
-          <a class="back-button small link tc pas dn btn"><< Back</a>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+        <title>ScreenCat</title>
+        <meta name="author" content="max ogden">
+        <meta name="description" content="cool appz">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="css/tachyons.css" />
+        <link rel="stylesheet" href="css/screencat.css" />
+        <style type="text/css">
+            .video-container {
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                text-align: center;
+            }
+            .video-container header {
+                overflow: auto;
+                line-height: 1rem;
+            }
+        </style>
+    </head>
+    <body class="wi-100">
+        <div class="content-container">
+            <header class="bb b--light-gray pvm">
+                <div class="center mw8 phm phl-ns">
+                    <h1 class="f3 book dib prm man">ScreenCat</h1>
+                    <div class="fr"><a class="back-button small link tc pas dn btn">&laquo; Back</a></div>
+                </div>
+            </header>
+            <main class="center mw8 phm phl-ns ptl">
+                <div class="join-container">
+                    <h2 class="f4 ttu book cl">join</h2>
+                    <div class="cr">
+                        <div class="w-80 left">
+                            <input class="code-paste-input pam brs ba b--light-gray w-100 mw-fill">
+                        </div>
+                        <div class="w-20 left">
+                            <div class="code-paste-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">
+                                Connect
+                            </div>
+                        </div>
+                    </div>
+                    <p>
+                        Enter your invite code to connect to a ScreenCat screen. To share your screen,
+                        <a href="https://github.com/maxogden/screencat#readme">download ScreenCat.app</a>.
+                    </p>
+                </div>
+            </main>
         </div>
-      </div>
-    </header>
-    <main class="center mw8 phm phl-ns ptl">
-      <div class="join-container">
-        <h2 class="f4 ttu book cl">join</h2>
-        <div class="cr">
-          <div class="w-80 left">
-            <input class="code-paste-input pam brs ba b--light-gray w-100 mw-fill"></input>
-          </div>
-          <div class="w-20 left">
-            <div class="code-paste-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">Connect</div>
-          </div>
-        </div>
-        <p>Enter your invite code to connect to a ScreenCat screen. To share your screen, <a href="https://github.com/maxogden/screencat#readme">download ScreenCat.app</a>.</p>
-      </div>
-    </main>
-  </div>
-  
-  <div class="video-container dn">
-  </div>
-  
-  <script src="remote-bundle.js"></script>
-</body>
+        <div class="video-container dn"></div>
+        <script src="remote-bundle.js"></script>
+    </body>
 </html>
