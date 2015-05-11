@@ -1,78 +1,92 @@
 <!DOCTYPE HTML>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
-    <title>ScreenCat</title>
-    <meta name="author" content="max ogden">
-    <meta name="description" content="cool appz">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="css/tachyons.css" />
-    <link rel="stylesheet" href="css/screencat.css" />
-</head>
-<body class="wi-100">
-  <div class="sharing-container dn">
-    <main class="center mw8 phm phl-ns ptl pbxl">
-      <p class="mono gray lh-copy thin mw7 f4 f3-ns">
-        You are now sharing your screen.
-        <a class="destroy-button small link tc pas db w-20 btn" style="display: inline;">Stop</a>
-      </p>
-    </main>
-  </div>
-
-  <div class="content-container">
-    <header class="bb b--light-gray pvm">
-      <div class="center mw8 phm phl-ns">
-        <h1 class="f3 book dib prm man">ScreenCat</h1>
-        <div class="fr">
-          <a class="back-button small link tc pas dn btn"><< Back</a>
-          <a class="quit-button small link tc pas btn">Quit</a>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+        <title>ScreenCat</title>
+        <meta name="author" content="max ogden">
+        <meta name="description" content="cool appz">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="css/tachyons.css" />
+        <link rel="stylesheet" href="css/screencat.css" />
+    </head>
+    <body class="wi-100">
+        <div class="sharing-container dn">
+            <main class="center mw8 phm phl-ns ptl pbxl">
+                <p class="mono gray lh-copy thin mw7 f4 f3-ns">
+                    You are now sharing your screen.
+                    <a class="destroy-button small link tc pas db w-20 btn" style="display: inline;">
+                        Stop
+                    </a>
+                </p>
+            </main>
         </div>
-      </div>
-    </header>
-    <main class="center mw8 phm phl-ns ptl">
-      <div class="choose-container">
-        <div class="cr">
-          <p class="mbl">If you share your screen the remote person will have full access to your desktop, mouse and keyboard.</p>
-          <div class="w-50 left">
-            <a class="share-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mrm">Share Your Screen</a>
-          </div>
-          <div class="w-50 left">
-            <a class="join-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mrm">Join Remote Screen</a>
-          </div>
+        <div class="content-container">
+            <header class="bb b--light-gray pvm">
+                <div class="center mw8 phm phl-ns">
+                    <h1 class="f3 book dib prm man">ScreenCat</h1>
+                    <div class="fr">
+                        <a class="back-button small link tc pas dn btn"><< Back</a>
+                        <a class="quit-button small link tc pas btn">Quit</a>
+                    </div>
+                </div>
+            </header>
+            <main class="center mw8 phm phl-ns ptl">
+                <div class="choose-container">
+                    <div class="cr">
+                        <p class="mbl">
+                            If you share your screen the remote person will have full access to your
+                            desktop, mouse and keyboard.
+                        </p>
+                        <div class="w-50 left">
+                            <a class="share-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mrm">
+                                Share Your Screen
+                            </a>
+                        </div>
+                        <div class="w-50 left">
+                            <a class="join-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mrm">
+                                Join Remote Screen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="share-container dn">
+                    <h2 class="f4 ttu book">Share</h2>
+                    <div class="cr">
+                        <div class="w-80 left">
+                            <input class="code-copy-input pam brs ba b--light-gray w-100 mw-fill"></input>
+                        </div>
+                        <div class="w-20 left">
+                            <div class="code-copy-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">
+                                Copy
+                            </div>
+                        </div>
+                    </div>
+                    <p class="mbx">
+                        Send this code to the person you want to share your screen with. They can use
+                        <a href="https://github.com/maxogden/screencat/releases/latest" class="open-externally">
+                        ScreenCat.app</a> or <a href="http://maxogden.github.io/screencat/remote" class="open-externally">
+                        http://maxogden.github.io/screencat/remote</a> in Chrome/Firefox. Please wait
+                        here until they connect.
+                    </p>
+                </div>
+                <div class="join-container dn">
+                    <h2 class="f4 ttu book cl">join</h2>
+                    <div class="cr">
+                        <div class="w-80 left">
+                            <input class="code-paste-input pam brs ba b--light-gray w-100 mw-fill" value="Loading..."></input>
+                        </div>
+                        <div class="w-20 left">
+                            <div class="code-paste-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">
+                                Connect
+                            </div>
+                        </div>
+                    </div>
+                    <p>Enter a code to connect to a remote screen</p>
+                </div>
+            </main>
         </div>
-      </div>
-
-      <div class="share-container dn">
-        <h2 class="f4 ttu book">Share</h2>
-        <div class="cr">
-          <div class="w-80 left">
-            <input class="code-copy-input pam brs ba b--light-gray w-100 mw-fill"></input>
-          </div>
-          <div class="w-20 left">
-            <div class="code-copy-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">Copy</div>
-          </div>
-        </div>
-        <p class="mbx">Send this code to the person you want to share your screen with. They can use <a href="https://github.com/maxogden/screencat/releases/latest" class="open-externally">ScreenCat.app</a> or <a href="http://maxogden.github.io/screencat/remote" class="open-externally">http://maxogden.github.io/screencat/remote</a> in Chrome/Firefox. Please wait here until they connect.</p>
-      </div>
-
-      <div class="join-container dn">
-        <h2 class="f4 ttu book cl">join</h2>
-        <div class="cr">
-          <div class="w-80 left">
-            <input class="code-paste-input pam brs ba b--light-gray w-100 mw-fill" value="Loading..."></input>
-          </div>
-          <div class="w-20 left">
-            <div class="code-paste-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">Connect</div>
-          </div>
-        </div>
-        <p>Enter a code to connect to a remote screen</p>
-      </div>
-
-    </main>
-  </div>
-
-  <div class="video-container"></div>
-  <script src="index.js"></script>
-</body>
+        <div class="video-container"></div>
+        <script src="index.js"></script>
+    </body>
 </html>
