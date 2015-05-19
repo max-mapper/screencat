@@ -4,8 +4,8 @@
   "description": "webrtc screensharing with shared mouse and keyboard",
   "main": "app.js",
   "scripts": {
-    "app": "atom-shell app.js",
-    "build": "atom-shell-packager . ScreenCat --ignore=node_modules/atom-shell && cp img/Icon.icns ScreenCat.app/Contents/Resources/atom.icns",
+    "start": "electron app.js",
+    "build": "electron-packager . ScreenCat --platform=darwin --arch=x64 --version=0.26.0 --ignore=node_modules/electron-* && cp img/Icon.icns ScreenCat.app/Contents/Resources/atom.icns",
     "dev": "wzrd remote.js:remote-bundle.js",
     "test": "standard"
   },
@@ -22,9 +22,9 @@
     "robotjs": "git+https://github.com/maxogden/robotjs#keyupdown"
   },
   "devDependencies": {
-    "atom-shell": "^0.22.1",
-    "atom-shell-packager": "^1.2.0",
     "browserify": "^9.0.3",
+    "electron-packager": "^4.1.0",
+    "electron-prebuilt": "^0.26.0",
     "standard": "^3.3.0",
     "tachyons": "^1.2.0",
     "wzrd": "^1.2.1"
