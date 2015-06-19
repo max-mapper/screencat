@@ -40,7 +40,7 @@ The motivation for making ScreenCat came from a lack of open source + easily hac
 
 ```bash
 npm install # installs atom-shell and all the deps
-npm run app # runs the app in the atom-shell wrapper
+npm start # runs the app in the atom-shell wrapper
 npm run build # builds the mac app
 ```
 
