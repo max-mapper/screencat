@@ -4,7 +4,6 @@
 }
 
 .btn {
-  border-radius: 0;
   cursor: pointer;
   cursor: hand;
 }
@@ -23,4 +22,21 @@
 
 a {
   color: black;
+}
+
+.quit-button,
+.back-button {
+  color: #B3B3B3;
+  font-weight: 600;
+  background: white;
+  border: 2px solid #B3B3B3;
+  text-transform: lowercase;
+  text-shadow: none;
+  transition: opacity 200ms ease-in-out;
+}
+
+.quit-button:hover,
+.back-button:hover {
+  opacity: 0.5;
+  background: white;
 }
