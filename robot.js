@@ -26,7 +26,8 @@ module.exports = function createEvents (data) {
     if (data.meta) modifiers.push('command')
     if (k[0] !== '<') {
       console.log('typed ' + k + ' ' + JSON.stringify(modifiers))
-      robot.keyTap(k, modifiers[0])
+      if (modifiers[0]) robot.keyTap(k, modifiers[0]) 
+      else robot.keyTap(k)
     } else {
       if (k === '<enter>') robot.keyTap('enter')
       else if (k === '<backspace>') robot.keyTap('backspace')
