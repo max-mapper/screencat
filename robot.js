@@ -23,7 +23,7 @@ module.exports = function createEvents (data) {
     if (data.shift) modifiers.push('shift')
     if (data.control) modifiers.push('control')
     if (data.alt) modifiers.push('alt')
-    if (data.meta) modifiers.push('meta')
+    if (data.meta) modifiers.push('command')
     if (k[0] !== '<') {
       console.log('typed ' + k + ' ' + JSON.stringify(modifiers))
       robot.keyTap(k, modifiers[0])
