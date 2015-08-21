@@ -19,17 +19,19 @@
   color: #fff;
   text-shadow: 0 -1px 0 #35AF7A;
 }
-
-/* line 21, ../scss/screencat.scss */
-.btn:hover {
+/* line 20, ../scss/screencat.scss */
+.btn:hover,
+.btn:link:hover,
+.btn:visited:hover {
   background: linear-gradient(#35AF7A, #33C490);
   color: #fff;
   border: 1px solid #3FA06D;
 }
-
-/* line 27, ../scss/screencat.scss */
-.btn:active {
-  background: #B6DBD7;
+/* line 26, ../scss/screencat.scss */
+.btn:active,
+.btn:link:active,
+.btn:visited:active {
+  background: linear-gradient(#33C490, #33C490);
 }
 
 /* line 31, ../scss/screencat.scss */

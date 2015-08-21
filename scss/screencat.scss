@@ -16,16 +16,16 @@
   cursor: pointer;
   color: #fff;
   text-shadow: 0 -1px 0 #35AF7A;
-}
 
-.btn:hover {
-  background: linear-gradient(#35AF7A, #33C490);
-  color: #fff;
-  border: 1px solid #3FA06D;
-}
+  &:hover {
+    background: linear-gradient(#35AF7A, #33C490);
+    color: #fff;
+    border: 1px solid #3FA06D;
+  }
 
-.btn:active {
-  background: #B6DBD7;
+  &:active {
+    background: linear-gradient(#33C490, #33C490);
+  }
 }
 
 .cr {
