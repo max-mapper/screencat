@@ -1,10 +1,8 @@
-/* line 1, ../scss/screencat.scss */
 .left {
   float: left;
   display: block;
 }
 
-/* line 6, ../scss/screencat.scss */
 .btn,
 .btn:link,
 .btn:visited {
@@ -20,39 +18,32 @@
   text-shadow: 0 -1px 0 #35AF7A;
 }
 
-/* line 21, ../scss/screencat.scss */
 .btn:hover {
   background: linear-gradient(#35AF7A, #33C490);
   color: #fff;
   border: 1px solid #3FA06D;
 }
 
-/* line 27, ../scss/screencat.scss */
 .btn:active {
   background: #B6DBD7;
 }
 
-/* line 31, ../scss/screencat.scss */
 .cr {
   overflow: auto;
 }
 
-/* line 35, ../scss/screencat.scss */
 .video-container video {
   width: 100%;
 }
 
-/* line 39, ../scss/screencat.scss */
 .content-container.w-50 {
   margin: auto;
 }
 
-/* line 43, ../scss/screencat.scss */
 a {
   color: black;
 }
 
-/* line 47, ../scss/screencat.scss */
 .btn-plain {
   font-size: 18px;
   border: none;
@@ -62,16 +53,17 @@ a {
   text-transform: lowercase;
   text-shadow: none;
   transition: opacity 200ms ease-in-out;
-}
-/* line 57, ../scss/screencat.scss */
-.btn-plain:hover {
-  opacity: 0.5;
-  background: white;
-  color: #454545;
-  border: none;
+
+  &:hover {
+    opacity: 0.5;
+    background: white;
+    color: #454545;
+    border: none;
+  }
 }
 
-/* line 65, ../scss/screencat.scss */
 .symbol {
   font-size: 18px;
 }
+
+

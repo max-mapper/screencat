@@ -1352,27 +1352,27 @@ input[type="password"]:after,
 .btn,
 .btn:link,
 .btn:visited {
-  border: 1px solid #3FA06D;
-  background: linear-gradient(#33C490, #2DA071);
-  border-radius: 4px;
+  border-radius: .3em;
+  border-style: solid;
+  border-width: 1px;
+  color: #111;
   display: inline-block;
   letter-spacing: .15em;
   text-decoration: none;
   text-transform: uppercase;
-  color: #fff;
-  text-shadow: 0 -1px 0 #35AF7A;
+  transition: color .4s, background-color .4s, border .4s;
 }
 
 .btn:hover {
-  background: linear-gradient(#35AF7A, #33C490);
+  color: #7FDBFF;
+  border: 1px solid #7FDBFF;
+  transition: background-color .3s, color .3s, border .3s;
 }
 
 .btn:active {
-  background: #B6DBD7;
-}
-
-.btn svg {
-  line-height: 1.5;
+  color: #0074D9;
+  border: 1px solid #0074D9;
+  transition: background-color .3s, color .3s, border .3s;
 }
 
 /*

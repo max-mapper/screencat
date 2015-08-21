@@ -25,6 +25,11 @@
     "atom-shell": "^0.22.1",
     "atom-shell-packager": "^1.2.0",
     "browserify": "^9.0.3",
+    "grunt": "^0.4.5",
+    "grunt-contrib-compass": "^1.0.3",
+    "grunt-contrib-csslint": "^0.5.0",
+    "grunt-contrib-cssmin": "^0.13.0",
+    "grunt-contrib-watch": "^0.6.1",
     "standard": "^3.3.0",
     "tachyons": "^1.2.0",
     "wzrd": "^1.2.1"
