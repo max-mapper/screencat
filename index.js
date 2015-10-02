@@ -51,6 +51,7 @@ app.ui.buttons.back.addEventListener('click', function (e) {
   var el = app.ui.buttons.paste
   var elClone = el.cloneNode(true)
   el.parentNode.replaceChild(elClone, el)
+  app.ui.buttons.paste = elClone
 
   showChoose()
 })
