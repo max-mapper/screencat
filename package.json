@@ -19,7 +19,7 @@
     "vkey": "^1.0.0"
   },
   "optionalDependencies": {
-    "robotjs": "^0.1.4"
+    "robotjs": "^0.3.0"
   },
   "devDependencies": {
     "browserify": "^9.0.3",
