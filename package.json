@@ -14,7 +14,7 @@
   "dependencies": {
     "menubar": "^2.0.4",
     "nets": "^3.1.0",
-    "simple-peer": "^4.0.4",
+    "simple-peer": "^5.11.5",
     "ssejson": "^1.2.0",
     "vkey": "^1.0.0"
   },
