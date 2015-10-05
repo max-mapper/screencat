@@ -19,7 +19,7 @@
     "vkey": "^1.0.0"
   },
   "optionalDependencies": {
-    "robotjs": "git+https://github.com/maxogden/robotjs#keyupdown"
+    "robotjs": "^0.3.0"
   },
   "devDependencies": {
     "browserify": "^9.0.3",
