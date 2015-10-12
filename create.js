@@ -147,7 +147,7 @@ module.exports = function create (opts, connectedCb) {
           },
           function error (err) {
             // screenshare even if remote doesnt wanna do audio
-            if (err.name === 'PermissionDeniedError') {
+            if (err.name === 'PermissionDeniedError' || err.name === 'DevicesNotFoundError') {
               cb()
             } else {
               cb(err)
