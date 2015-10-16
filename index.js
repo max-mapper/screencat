@@ -2,14 +2,14 @@ var ipc = require('ipc')
 var clipboard = require('clipboard')
 var shell = require('shell')
 
-var createApp = require('./create.js')
+var createPeerConnection = require('./peer.js')
 var ui = require('./ui.js')
 var connect = require('./connect.js')
 
 var peer
-var app = createApp()
+var peerConnection = createPeerConnection()
 
-app.on('connected', function connected (newPeer, remote) {
+peerConnection.on('connected', function connected (newPeer, remote) {
   peer = newPeer
 
   if (!remote) {
@@ -45,21 +45,21 @@ ui.buttons.share.addEventListener('click', function (e) {
   ui.show(ui.containers.share)
   ui.hide(ui.containers.choose)
   ui.show(ui.buttons.back)
-  if (!app.robot) app.robot = require('./robot.js')
-  connect.host(app, ui)
+  if (!peerConnection.robot) peerConnection.robot = require('./robot.js')
+  connect.host(peerConnection, ui)
 })
 
 ui.buttons.join.addEventListener('click', function (e) {
   ui.show(ui.containers.join)
   ui.hide(ui.containers.choose)
   ui.show(ui.buttons.back)
-  connect.verifyUserRoom(app, ui, function (err, room, config) {
+  connect.verifyUserRoom(peerConnection, ui, function (err, room, config) {
     if (err) {
       ui.inputs.paste.value = 'Error! ' + err.message
       return
     }
     ui.inputs.paste.value = 'Waiting on other side...'
-    connect.remote(app, ui, room, config)
+    connect.remote(peerConnection, ui, room, config)
   })
 })
 

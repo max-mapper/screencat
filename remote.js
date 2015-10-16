@@ -1,19 +1,19 @@
-var createApp = require('./create.js')
-var app = createApp()
+var createPeerConnection = require('./peer.js')
+var peerConnection = createPeerConnection()
 var ui = require('./ui.js')
 var connect = require('./connect.js')
 
 ui.inputs.paste.value = 'Loading...'
-connect.verifyUserRoom(app, ui, function (err, room, config) {
+connect.verifyUserRoom(peerConnection, ui, function (err, room, config) {
   if (err) {
     ui.inputs.paste.value = 'Error! ' + err.message
     return
   }
   ui.inputs.paste.value = 'Waiting on other side...'
-  connect.remote(app, ui, room, config)
+  connect.remote(peerConnection, ui, room, config)
 })
 
-app.on('connected', function connected (peer) {
+peerConnection.on('connected', function connected (peer) {
   ui.inputs.paste.value = ''
   ui.show(ui.containers.multimedia)
   ui.hide(ui.containers.content)
@@ -38,11 +38,11 @@ ui.buttons.back.addEventListener('click', function (e) {
   showChoose()
 })
 
-app.on('getting-audio', function () {
+peerConnection.on('getting-audio', function () {
   ui.inputs.paste.value = 'Please allow or deny voice chat...'
 })
 
-app.on('waiting-for-peer', function () {
+peerConnection.on('waiting-for-peer', function () {
   ui.inputs.paste.value = 'Waiting for other side...'
 })
 

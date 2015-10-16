@@ -27,18 +27,18 @@ module.exports = function create (opts) {
     }
   }
 
-  var app = new events.EventEmitter()
-  app.getRemoteConfig = getRemoteConfig
-  app.verifyRoom = verifyRoom
-  app.remotePeer = remotePeer
-  app.hostPeer = hostPeer
-  app.handleSignal = handleSignal
-  app.videoElement = videoElement
-  app.audioElement = audioElement
-  app.onConnect = onConnect
-  app.createRoom = createRoom
+  var pc = new events.EventEmitter()
+  pc.getRemoteConfig = getRemoteConfig
+  pc.verifyRoom = verifyRoom
+  pc.remotePeer = remotePeer
+  pc.hostPeer = hostPeer
+  pc.handleSignal = handleSignal
+  pc.videoElement = videoElement
+  pc.audioElement = audioElement
+  pc.onConnect = onConnect
+  pc.createRoom = createRoom
 
-  return app
+  return pc
 
   function verifyRoom (room, cb) {
     // ensure room is still open
@@ -92,7 +92,7 @@ module.exports = function create (opts) {
       inflate(row.data, function inflated (err, stringified) {
         if (err) return cb(err)
 
-        app.emit('getting-audio')
+        pc.emit('getting-audio')
         getAudio(function got (err, audioStream) {
           if (err) return handleRTCErr(err, cb)
           var peer = new SimplePeer({ trickle: false, config: config })
@@ -158,7 +158,7 @@ module.exports = function create (opts) {
             peer = new SimplePeer({ initiator: true, trickle: false, config: config })
             peer._pc.addStream(videoStream)
             peer._pc.addStream(audioStream)
-            app.emit('waiting-for-peer')
+            pc.emit('waiting-for-peer')
             cb(null, peer)
           }, function (err) { handleRTCErr(err, cb) })
         }, function (err) { handleRTCErr(err, cb) })
@@ -200,7 +200,7 @@ module.exports = function create (opts) {
   }
 
   function onConnect (peer, remote) {
-    app.emit('connected', peer, remote)
+    pc.emit('connected', peer, remote)
     var queue = []
 
     if (remote) {
@@ -268,8 +268,8 @@ module.exports = function create (opts) {
           queue.started = false
           return
         }
-        if (app.robot) {
-          app.robot(next)
+        if (pc.robot) {
+          pc.robot(next)
         }
       }, 0)
     }

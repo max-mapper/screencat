@@ -1,5 +1,5 @@
-module.exports.verifyUserRoom = function (app, ui, cb) {
-  app.getRemoteConfig(function (err, config) {
+module.exports.verifyUserRoom = function (peerConnection, ui, cb) {
+  peerConnection.getRemoteConfig(function (err, config) {
     if (err) return cb(err)
     ui.inputs.paste.value = ''
 
@@ -11,15 +11,15 @@ module.exports.verifyUserRoom = function (app, ui, cb) {
       var room = ui.inputs.paste.value
       ui.inputs.paste.value = 'Connecting...'
       if (!room) return
-      app.verifyRoom(room, function (err) {
+      peerConnection.verifyRoom(room, function (err) {
         cb(err, room, config)
       })
     }
   })
 }
 
-module.exports.remote = function (app, ui, room, config) {
-  app.remotePeer(config, room, function (err, peer) {
+module.exports.remote = function (peerConnection, ui, room, config) {
+  peerConnection.remotePeer(config, room, function (err, peer) {
     if (err) {
       ui.inputs.paste.value = 'Error! ' + err.message
       return
@@ -30,10 +30,10 @@ module.exports.remote = function (app, ui, room, config) {
       return
     }
 
-    peer.on('stream', function (stream) { renderStreams(app, ui, stream) })
+    peer.on('stream', function (stream) { renderStreams(peerConnection, ui, stream) })
 
     peer.on('signal', function (sdp) {
-      app.handleSignal(sdp, peer, true, room, function (err) {
+      peerConnection.handleSignal(sdp, peer, true, room, function (err) {
         if (err) {
           ui.containers.content.innerHTML = 'Error! Please Quit. ' + err.message
           return
@@ -42,15 +42,15 @@ module.exports.remote = function (app, ui, room, config) {
       })
     })
 
-    if (peer.connected) app.onConnect(peer, true)
-    else peer.on('connect', function () { app.onConnect(peer, true) })
+    if (peer.connected) peerConnection.onConnect(peer, true)
+    else peer.on('connect', function () { peerConnection.onConnect(peer, true) })
   })
 }
 
-module.exports.host = function (app, ui) {
-  getARoom(app, ui, function (err, room, config) {
+module.exports.host = function (peerConnection, ui) {
+  getARoom(peerConnection, ui, function (err, room, config) {
     ui.inputs.copy.value = room
-    app.hostPeer(room, config, function (err, peer) {
+    peerConnection.hostPeer(room, config, function (err, peer) {
       if (err) {
         ui.inputs.copy.value = 'Error! ' + err.message
         return
@@ -61,10 +61,10 @@ module.exports.host = function (app, ui) {
         return
       }
 
-      peer.on('stream', function (stream) { renderStreams(app, ui, stream) })
+      peer.on('stream', function (stream) { renderStreams(peerConnection, ui, stream) })
 
       peer.on('signal', function (sdp) {
-        app.handleSignal(sdp, peer, false, room, function (err) {
+        peerConnection.handleSignal(sdp, peer, false, room, function (err) {
           if (err) {
             ui.containers.content.innerHTML = 'Error! Please Quit. ' + err.message
             return
@@ -72,29 +72,29 @@ module.exports.host = function (app, ui) {
         })
       })
 
-      if (peer.connected) app.onConnect(peer, false)
-      else peer.on('connect', function () { app.onConnect(peer, false) })
+      if (peer.connected) peerConnection.onConnect(peer, false)
+      else peer.on('connect', function () { peerConnection.onConnect(peer, false) })
     })    
   })
 }
 
-function renderStreams (app, ui, stream) {
+function renderStreams (peerConnection, ui, stream) {
   stream.getAudioTracks().forEach(function each (track) {
-    var audio = app.audioElement(stream)
+    var audio = peerConnection.audioElement(stream)
     ui.containers.multimedia.appendChild(audio)
     ui.hide(ui.containers.multimedia)
   })
   stream.getVideoTracks().forEach(function each (track) {
-    var video = app.videoElement(stream)
+    var video = peerConnection.videoElement(stream)
     ui.containers.multimedia.appendChild(video)
     ui.hide(ui.containers.multimedia)
   })
 }
 
-function getARoom (app, ui, cb) {
-  app.getRemoteConfig(function (err, config) {
+function getARoom (peerConnection, ui, cb) {
+  peerConnection.getRemoteConfig(function (err, config) {
     if (err) return cb(err)
-    app.createRoom(function(err, room) {
+    peerConnection.createRoom(function(err, room) {
       cb(err, room, config)
     })
   })
