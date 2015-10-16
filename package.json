@@ -2,9 +2,9 @@
   "name": "screencat",
   "version": "3.0.0",
   "description": "webrtc screensharing with shared mouse and keyboard",
-  "main": "app.js",
+  "main": "electron.js",
   "scripts": {
-    "start": "electron app.js",
+    "start": "electron electron.js",
     "build": "electron-packager . ScreenCat --platform=darwin --arch=x64 --version=0.33.6 --ignore=node_modules/electron-prebuilt --ignore=node_modules/electron-packager --ignore=node_modules/browserify --ignore=node_modules/wzrd --ignore=node_modules/standard && cp img/Icon.icns ScreenCat.app/Contents/Resources/atom.icns",
     "dev": "wzrd remote.js:remote-bundle.js",
     "test": "standard"
