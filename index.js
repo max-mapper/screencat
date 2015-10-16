@@ -11,7 +11,7 @@ var app = createApp()
 
 app.on('connected', function connected (newPeer, remote) {
   peer = newPeer
-  
+
   if (!remote) {
     ui.show(ui.containers.sharing)
     ui.hide(ui.containers.content)

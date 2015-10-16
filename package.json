@@ -10,7 +10,7 @@
     "test": "standard"
   },
   "author": "max ogden",
-  "license": "BSD",
+  "license": "BSD-3-Clause",
   "dependencies": {
     "menubar": "^2.0.4",
     "nets": "^3.1.0",
@@ -25,7 +25,7 @@
     "browserify": "^9.0.3",
     "electron-packager": "^4.1.0",
     "electron-prebuilt": "^0.33.3",
-    "standard": "^3.3.0",
+    "standard": "^5.3.1",
     "tachyons": "^1.2.0",
     "wzrd": "^1.2.1"
   },

@@ -39,7 +39,7 @@ module.exports = function create (opts) {
   app.createRoom = createRoom
 
   return app
-  
+
   function verifyRoom (room, cb) {
     // ensure room is still open
     nets({method: 'POST', uri: server + '/v1/' + room + '/pong', json: {ready: true}}, function response (err, resp, data) {
@@ -59,21 +59,19 @@ module.exports = function create (opts) {
 
   // try getusermedia and then upload sdp pong. this causes host to ping sdp back
   function getAudio (cb) {
-    getUserMedia({audio: true, video: false},
-      function ok (stream) {
-        cb(null, stream)
-      },
-      function error (err) {
-        // screenshare even if remote doesnt wanna do audio
-        if (err.name === 'PermissionDeniedError') {
-          cb()
-        } else {
-          cb(err)
-        }
+    getUserMedia({audio: true, video: false}, function ok (stream) {
+      cb(null, stream)
+    },
+    function error (err) {
+      // screenshare even if remote doesnt wanna do audio
+      if (err.name === 'PermissionDeniedError') {
+        cb()
+      } else {
+        cb(err)
       }
-    )
+    })
   }
-  
+
   function remotePeer (config, room, cb) {
     // listen for pings
     var events = new EventSource(server + '/v1/' + room + '/pings')
@@ -93,7 +91,7 @@ module.exports = function create (opts) {
 
       inflate(row.data, function inflated (err, stringified) {
         if (err) return cb(err)
-        
+
         app.emit('getting-audio')
         getAudio(function got (err, audioStream) {
           if (err) return handleRTCErr(err, cb)
@@ -112,14 +110,14 @@ module.exports = function create (opts) {
       events.close()
     }
   }
-  
+
   function createRoom (cb) {
     nets({method: 'POST', uri: server + '/v1'}, function response (err, resp, body) {
       if (err) return cb(err)
       var room = JSON.parse(body)
       cb(null, room.name)
     })
-  }  
+  }
 
   function hostPeer (room, config, cb) {
     var peer
@@ -200,7 +198,7 @@ module.exports = function create (opts) {
       })
     })
   }
-  
+
   function onConnect (peer, remote) {
     app.emit('connected', peer, remote)
     var queue = []
@@ -256,7 +254,7 @@ module.exports = function create (opts) {
 
       return data
     }
-    
+
     // magic queue that helps prevent weird key drop issues on the c++ side
     function startQueue () {
       if (queue.started) return
