@@ -1,19 +1,30 @@
-var createApp = require('./create.js')
-
 var ipc = require('ipc')
 var clipboard = require('clipboard')
 var shell = require('shell')
 
-var peer
+var createApp = require('./create.js')
+var ui = require('./ui.js')
+var connect = require('./connect.js')
 
-var app = createApp({}, function connected (newPeer, isRemote) {
-  if (isRemote) ipc.send('resize', {width: 800, height: 500})
+var peer
+var app = createApp()
+
+app.on('connected', function connected (newPeer, remote) {
   peer = newPeer
+  
+  if (!remote) {
+    ui.show(ui.containers.sharing)
+    ui.hide(ui.containers.content)
+  } else {
+    ipc.send('resize', {width: 800, height: 500})
+    ui.show(ui.containers.multimedia)
+    ui.hide(ui.containers.content)
+  }
 
   peer.on('error', function error (err) {
     console.error('peer error')
     console.error(err)
-    app.ui.containers.content.innerHTML = 'Error connecting! Please Quit. ' + err.message
+    ui.containers.content.innerHTML = 'Error connecting! Please Quit. ' + err.message
   })
 
   peer.on('close', function close () {
@@ -21,54 +32,53 @@ var app = createApp({}, function connected (newPeer, isRemote) {
   })
 })
 
-app.ui.buttons.quit.addEventListener('click', function (e) {
+ui.buttons.quit.addEventListener('click', function (e) {
   ipc.send('terminate')
 })
 
-app.ui.buttons.destroy.addEventListener('click', function (e) {
+ui.buttons.destroy.addEventListener('click', function (e) {
   if (peer) peer.destroy()
   showChoose()
 })
 
-app.ui.buttons.share.addEventListener('click', function (e) {
-  app.show(app.ui.containers.share)
-  app.hide(app.ui.containers.choose)
-  app.show(app.ui.buttons.back)
+ui.buttons.share.addEventListener('click', function (e) {
+  ui.show(ui.containers.share)
+  ui.hide(ui.containers.choose)
+  ui.show(ui.buttons.back)
   if (!app.robot) app.robot = require('./robot.js')
-  app.startHandshake(false)
+  connect.host(app, ui)
 })
 
-app.ui.buttons.join.addEventListener('click', function (e) {
-  app.show(app.ui.containers.join)
-  app.hide(app.ui.containers.choose)
-  app.show(app.ui.buttons.back)
-  var remote = true
-  app.startHandshake(remote)
+ui.buttons.join.addEventListener('click', function (e) {
+  ui.show(ui.containers.join)
+  ui.hide(ui.containers.choose)
+  ui.show(ui.buttons.back)
+  connect.remote(app, ui)
 })
 
-app.ui.buttons.back.addEventListener('click', function (e) {
+ui.buttons.back.addEventListener('click', function (e) {
   // HACK do a clone-swap to remove listeners
-  var el = app.ui.buttons.paste
+  var el = ui.buttons.paste
   var elClone = el.cloneNode(true)
   el.parentNode.replaceChild(elClone, el)
-  app.ui.buttons.paste = elClone
+  ui.buttons.paste = elClone
 
   showChoose()
 })
 
-app.ui.buttons.copy.addEventListener('click', function (e) {
+ui.buttons.copy.addEventListener('click', function (e) {
   e.preventDefault()
-  clipboard.writeText(app.ui.inputs.copy.value)
+  clipboard.writeText(ui.inputs.copy.value)
 })
 
 function showChoose () {
-  app.hide(app.ui.containers.sharing)
-  app.hide(app.ui.containers.video)
-  app.show(app.ui.containers.content)
-  app.show(app.ui.containers.choose)
-  app.hide(app.ui.containers.share)
-  app.hide(app.ui.containers.join)
-  app.hide(app.ui.buttons.back)
+  ui.hide(ui.containers.sharing)
+  ui.hide(ui.containers.multimedia)
+  ui.show(ui.containers.content)
+  ui.show(ui.containers.choose)
+  ui.hide(ui.containers.share)
+  ui.hide(ui.containers.join)
+  ui.hide(ui.buttons.back)
 }
 
 var externalLinks = document.querySelectorAll('.open-externally')
