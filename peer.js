@@ -74,7 +74,9 @@ module.exports = function create (opts) {
 
   function remotePeer (config, room, cb) {
     // listen for pings
-    var events = new EventSource(server + '/v1/' + room + '/pings')
+    var pingsUrl = server + '/v1/' + room + '/pings'
+    console.log('getting pings', pingsUrl)
+    var events = new EventSource(pingsUrl)
     events.onmessage = function onMessage (e) {
       console.log('pings onmessage', e.data)
       var row
@@ -205,7 +207,7 @@ module.exports = function create (opts) {
 
     if (remote) {
       window.addEventListener('mousedown', mousedownListener)
-      window.addEventListener('keydown', keydownListener)      
+      window.addEventListener('keydown', keydownListener)
     }
 
     if (!remote) {

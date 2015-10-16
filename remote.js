@@ -10,7 +10,7 @@ connect.verifyUserRoom(peerConnection, ui, function (err, room, config) {
     return
   }
   ui.inputs.paste.value = 'Waiting on other side...'
-  connect.remote(peerConnection, ui, room, config)
+  connect.remote(peerConnection, ui, config, room)
 })
 
 peerConnection.on('connected', function connected (peer) {

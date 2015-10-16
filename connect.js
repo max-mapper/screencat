@@ -18,7 +18,7 @@ module.exports.verifyUserRoom = function (peerConnection, ui, cb) {
   })
 }
 
-module.exports.remote = function (peerConnection, ui, room, config) {
+module.exports.remote = function (peerConnection, ui, config, room) {
   peerConnection.remotePeer(config, room, function (err, peer) {
     if (err) {
       ui.inputs.paste.value = 'Error! ' + err.message
@@ -49,6 +49,10 @@ module.exports.remote = function (peerConnection, ui, room, config) {
 
 module.exports.host = function (peerConnection, ui) {
   getARoom(peerConnection, ui, function (err, room, config) {
+    if (err) {
+      ui.inputs.copy.value = 'Error! ' + err.message
+      return
+    }
     ui.inputs.copy.value = room
     peerConnection.hostPeer(room, config, function (err, peer) {
       if (err) {
@@ -74,7 +78,7 @@ module.exports.host = function (peerConnection, ui) {
 
       if (peer.connected) peerConnection.onConnect(peer, false)
       else peer.on('connect', function () { peerConnection.onConnect(peer, false) })
-    })    
+    })
   })
 }
 
@@ -94,7 +98,7 @@ function renderStreams (peerConnection, ui, stream) {
 function getARoom (peerConnection, ui, cb) {
   peerConnection.getRemoteConfig(function (err, config) {
     if (err) return cb(err)
-    peerConnection.createRoom(function(err, room) {
+    peerConnection.createRoom(function (err, room) {
       cb(err, room, config)
     })
   })

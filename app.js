@@ -59,7 +59,7 @@ ui.buttons.join.addEventListener('click', function (e) {
       return
     }
     ui.inputs.paste.value = 'Waiting on other side...'
-    connect.remote(peerConnection, ui, room, config)
+    ipc.send('create-window', {config: config, room: room})
   })
 })
 
