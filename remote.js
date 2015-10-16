@@ -4,7 +4,14 @@ var ui = require('./ui.js')
 var connect = require('./connect.js')
 
 ui.inputs.paste.value = 'Loading...'
-connect.remote(app, ui)
+connect.verifyUserRoom(app, ui, function (err, room, config) {
+  if (err) {
+    ui.inputs.paste.value = 'Error! ' + err.message
+    return
+  }
+  ui.inputs.paste.value = 'Waiting on other side...'
+  connect.remote(app, ui, room, config)
+})
 
 app.on('connected', function connected (peer) {
   ui.inputs.paste.value = ''

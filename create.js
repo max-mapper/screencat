@@ -203,8 +203,10 @@ module.exports = function create (opts) {
     app.emit('connected', peer, remote)
     var queue = []
 
-    window.addEventListener('mousedown', mousedownListener)
-    window.addEventListener('keydown', keydownListener)
+    if (remote) {
+      window.addEventListener('mousedown', mousedownListener)
+      window.addEventListener('keydown', keydownListener)      
+    }
 
     if (!remote) {
       peer.on('data', function (data) {
