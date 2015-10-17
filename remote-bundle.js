@@ -1,2098 +1,4 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-(function (process,Buffer){
-/* global screen, EventSource */
-var zlib = require('zlib')
-
-var SimplePeer = require('simple-peer')
-var nets = require('nets')
-var getUserMedia = require('./get-user-media.js')()
-
-module.exports = function create (opts, connectedCb) {
-  var server = 'http://catlobby.maxogden.com'
-  // var server = 'http://localhost:5005'
-  var remoteConfigUrl = 'https://instant.io/rtcConfig'
-  if (process.browser) remoteConfigUrl = 'http://cors.maxogden.com/' + remoteConfigUrl
-
-  var video, videoSize
-
-  var ui = {}
-
-  ui.containers = {
-    share: document.querySelector('.share-container'),
-    join: document.querySelector('.join-container'),
-    content: document.querySelector('.content-container'),
-    choose: document.querySelector('.choose-container'),
-    video: document.querySelector('.video-container'),
-    sharing: document.querySelector('.sharing-container')
-  }
-
-  ui.buttons = {
-    share: document.querySelector('.share-button'),
-    join: document.querySelector('.join-button'),
-    copy: document.querySelector('.code-copy-button'),
-    paste: document.querySelector('.code-paste-button'),
-    quit: document.querySelector('.quit-button'),
-    back: document.querySelector('.back-button'),
-    destroy: document.querySelector('.destroy-button')
-  }
-
-  ui.inputs = {
-    copy: document.querySelector('.code-copy-input'),
-    paste: document.querySelector('.code-paste-input')
-  }
-
-  var constraints = {
-    audio: false,
-    video: {
-      mandatory: {
-        chromeMediaSource: 'screen',
-        maxWidth: screen.availWidth,
-        maxHeight: screen.availHeight,
-        maxFrameRate: 25
-      },
-      optional: []
-    }
-  }
-
-  var app = {
-    ui: ui,
-    startHandshake: startHandshake,
-    hide: hide,
-    show: show
-  }
-
-  return app
-
-  function startHandshake (remote) {
-    nets({url: remoteConfigUrl, json: true}, function gotConfig (err, resp, config) {
-      if (err || resp.statusCode > 299) config = undefined
-      if (remote) remotePeer(config)
-      else hostPeer(config)
-    })
-
-    function remotePeer (config) {
-      // first, wait for user to enter room name
-      ui.inputs.paste.value = ''
-      ui.buttons.paste.addEventListener('click', onJoinClick)
-
-      function onJoinClick (e) {
-        e.preventDefault()
-        var room = ui.inputs.paste.value
-        ui.inputs.paste.value = 'Connecting...'
-        if (!room) return
-        // ensure room is still open
-        nets({method: 'POST', uri: server + '/v1/' + room + '/pong', json: {ready: true}}, function response (err, resp, data) {
-          if (err) {
-            ui.inputs.paste.value = 'Error! ' + err.message
-            return
-          }
-          if (resp.statusCode !== 200) {
-            ui.inputs.paste.value = 'Invalid or expired invite code'
-            return
-          }
-          listenForPings(room)
-        })
-      }
-
-      function listenForPings (room) {
-        ui.inputs.paste.value = 'Waiting on other side...'
-
-        // listen for pings
-        var events = new EventSource(server + '/v1/' + room + '/pings')
-        events.onmessage = function onMessage (e) {
-          console.log('pings onmessage', e.data)
-          var row
-          try {
-            row = JSON.parse(e.data)
-          } catch (e) {
-            ui.inputs.copy.value = 'Error connecting. Please start over.'
-            row = {}
-          }
-
-          if (!row.data) {
-            return
-          }
-
-          inflate(row.data, function inflated (err, stringified) {
-            if (err) {
-              ui.inputs.copy.value = 'Error! Please Quit'
-              return
-            }
-
-            getAudio(function got (err, audioStream) {
-              if (err) {
-                handleRTCErr(err)
-                return
-              }
-              var peer = new SimplePeer({ trickle: false, config: config })
-              if (audioStream) peer._pc.addStream(audioStream)
-              handleSignal(peer, true, room)
-              peer.signal(JSON.parse(stringified.toString()))
-            })
-          })
-
-          events.close()
-        }
-
-        events.onerror = function onError (e) {
-          ui.inputs.copy.value = 'Error connecting. Please start over.'
-          events.close()
-        }
-      }
-
-      // try getusermedia and then upload sdp pong. this causes host to ping sdp back
-      function getAudio (cb) {
-        ui.inputs.paste.value = 'Please allow or deny voice chat...'
-        getUserMedia({audio: true, video: false},
-          function ok (stream) {
-            cb(null, stream)
-          },
-          function error (err) {
-            // screenshare even if remote doesnt wanna do audio
-            if (err.name === 'PermissionDeniedError') {
-              cb()
-            } else {
-              cb(err)
-            }
-          }
-        )
-      }
-    }
-
-    function hostPeer (config) {
-      var peer
-      ui.inputs.copy.value = 'Loading...'
-      // create room
-      nets({method: 'POST', uri: server + '/v1'}, function response (err, resp, body) {
-        if (err) {
-          ui.inputs.copy.value = 'Error! ' + err.message
-          return
-        }
-
-        var room = JSON.parse(body)
-        ui.inputs.copy.value = room.name
-
-        // listen for pongs
-        var events = new EventSource(server + '/v1/' + room.name + '/pongs')
-        events.onmessage = function onMessage (e) {
-          console.log('pongs onmessage', e.data)
-          var row
-          try {
-            row = JSON.parse(e.data)
-          } catch (e) {
-            ui.inputs.copy.value = 'Error connecting. Please start over.'
-            row = {}
-          }
-
-          // other side is ready
-          if (row.ready) {
-            connect(row.data)
-          }
-
-          // sdp from other side
-          if (row.data) {
-            inflate(row.data, function inflated (err, stringified) {
-              if (err) {
-                ui.inputs.copy.value = 'Error! Please Quit'
-                return
-              }
-
-              peer.signal(JSON.parse(stringified.toString()))
-            })
-            events.close()
-          }
-
-          function connect (pong) {
-            // screensharing
-            getUserMedia(constraints, function (videoStream) {
-              // audio
-              getUserMedia({audio: true, video: false}, function (audioStream) {
-                peer = new SimplePeer({ initiator: true, trickle: false, config: config })
-                peer._pc.addStream(videoStream)
-                peer._pc.addStream(audioStream)
-                ui.inputs.copy.value = 'Waiting for other side...'
-                handleSignal(peer, false, room.name)
-              }, handleRTCErr)
-            }, handleRTCErr)
-          }
-        }
-
-        events.onerror = function onError (e) {
-          ui.inputs.copy.value = 'Error connecting. Please start over.'
-          events.close()
-        }
-      })
-    }
-  }
-
-  function handleRTCErr (err) {
-    if (err.name === 'PermissionDeniedError') {
-      console.error('permission denied')
-      console.error(err)
-      throw new Error('SCREENSHARING PERMISSION DENIED')
-    } else {
-      console.error('unknown error')
-      throw err
-    }
-  }
-
-  function handleSignal (peer, remote, room) {
-    window.PEER = peer // for debugging
-    var queue = []
-
-    peer.on('signal', function onSignal (sdp) {
-      deflate(sdp, function deflated (err, data) {
-        if (err) {
-          ui.containers.content.innerHTML = 'Error! Please Quit. ' + err.message
-          return
-        }
-
-        if (!room) {
-          var el
-          if (remote) el = ui.inputs.paste
-          else el = ui.inputs.copy
-          el.value = 'Error! Please Quit'
-          return
-        }
-
-        // upload sdp
-        var uploadURL = server + '/v1/' + room
-        if (remote) uploadURL += '/pong'
-        else uploadURL += '/ping'
-
-        console.log('POST', uploadURL, data)
-        nets({method: 'POST', json: {data: data}, uri: uploadURL}, function response (err, resp, body) {
-          if (err) {
-            if (remote) ui.inputs.paste.value = err.message
-            else ui.inputs.copy.value = err.message
-            return
-          }
-          if (resp.statusCode > 299) {
-            if (remote) ui.inputs.paste.value = err.message
-            else ui.inputs.copy.value = err.message
-            return
-          }
-        })
-      })
-    })
-
-    peer.on('stream', function (stream) {
-      stream.getAudioTracks().forEach(function each (track) {
-        renderAudio(stream)
-      })
-      stream.getVideoTracks().forEach(function each (track) {
-        renderVideo(stream)
-      })
-    })
-
-    if (peer.connected) onConnect()
-    else peer.on('connect', onConnect)
-
-    function onConnect () {
-      if (connectedCb) connectedCb(peer, remote)
-      app.show(ui.containers.video)
-      app.hide(ui.containers.content)
-
-      if (!remote) {
-        app.show(ui.containers.sharing)
-
-        peer.on('data', function (data) {
-          console.log('got data', JSON.stringify(data))
-          app.hide(ui.containers.content)
-          queue.push(data)
-          if (queue.length === 1) startQueue()
-        })
-        return
-      }
-
-      window.addEventListener('mousedown', mousedownListener)
-      window.addEventListener('keydown', keydownListener)
-
-      peer.on('close', function cleanup () {
-        window.removeEventListener('mousedown', mousedownListener)
-        window.removeEventListener('keydown', keydownListener)
-        ui.containers.video.innerHTML = ''
-      })
-
-      function mousedownListener (e) {
-        var data = getMouseData(e)
-        data.click = true
-        console.log('send mouse', data)
-        peer.send(data)
-      }
-
-      function keydownListener (e) {
-        e.preventDefault()
-
-        var data = {
-          keyCode: e.keyCode,
-          shift: e.shiftKey,
-          meta: e.metaKey,
-          control: e.ctrlKey,
-          alt: e.altKey
-        }
-
-        console.log('send key', data)
-        peer.send(data)
-      }
-
-      function getMouseData (e) {
-        var data = {}
-        data.clientX = e.clientX
-        data.clientY = e.clientY
-
-        if (video) {
-          videoSize = video.getBoundingClientRect()
-          data.canvasWidth = videoSize.width
-          data.canvasHeight = videoSize.height
-        }
-
-        return data
-      }
-    }
-
-    // magic queue that helps prevent weird key drop issues on the c++ side
-    function startQueue () {
-      if (queue.started) return
-      queue.started = true
-      queue.id = setInterval(function () {
-        var next = queue.shift()
-        if (!next) {
-          clearInterval(queue.id)
-          queue.started = false
-          return
-        }
-        if (app.robot) {
-          app.robot(next)
-        }
-      }, 0)
-    }
-  }
-
-  function renderVideo (stream) {
-    video = document.createElement('video')
-    video.src = window.URL.createObjectURL(stream)
-    video.autoplay = true
-
-    ui.containers.video.appendChild(video)
-    app.hide(ui.containers.video)
-  }
-
-  function renderAudio (stream) {
-    var audio = document.createElement('audio')
-    audio.src = window.URL.createObjectURL(stream)
-    audio.autoplay = true
-
-    ui.containers.video.appendChild(audio)
-    app.hide(ui.containers.video)
-  }
-
-  function inflate (data, cb) {
-    data = decodeURIComponent(data.toString())
-    zlib.inflate(new Buffer(data, 'base64'), cb)
-  }
-
-  function deflate (data, cb) {
-    // sdp is ~2.5k usually, that's too big for a URL, so we zlib deflate it
-    var stringified = JSON.stringify(data)
-    zlib.deflate(stringified, function (err, deflated) {
-      if (err) {
-        cb(err)
-        return
-      }
-      var connectionString = deflated.toString('base64')
-      var code = encodeURIComponent(connectionString)
-      cb(null, code)
-    })
-  }
-
-  function show (ele) {
-    if (!ele) return
-    ele.classList.remove('dn')
-  }
-
-  function hide (ele) {
-    if (!ele) return
-    ele.classList.add('dn')
-    ele.classList.remove('db')
-  }
-}
-
-}).call(this,require('_process'),require("buffer").Buffer)
-},{"./get-user-media.js":2,"_process":47,"buffer":40,"nets":3,"simple-peer":11,"zlib":39}],2:[function(require,module,exports){
-module.exports = function () {
-  var getUserMedia = (
-    window.navigator.getUserMedia ||
-    window.navigator.webkitGetUserMedia ||
-    window.navigator.mozGetUserMedia ||
-    window.navigator.msGetUserMedia
-  )
-  if (!getUserMedia) return
-  return getUserMedia.bind(window.navigator)
-}
-
-},{}],3:[function(require,module,exports){
-(function (process,Buffer){
-var req = require('request')
-
-module.exports = Nets
-
-function Nets (opts, cb) {
-  if (typeof opts === 'string') opts = { uri: opts }
-
-  // in node, if encoding === null then response will be a Buffer. we want this to be the default
-  if (!opts.hasOwnProperty('encoding')) opts.encoding = null
-
-  // in browser, we should by default convert the arraybuffer into a Buffer
-  if (process.browser && !opts.hasOwnProperty('json') && opts.encoding === null) {
-    opts.responseType = 'arraybuffer'
-    var originalCb = cb
-    cb = bufferify
-  }
-
-  function bufferify (err, resp, body) {
-    if (body) body = new Buffer(new Uint8Array(body))
-    originalCb(err, resp, body)
-  }
-
-  return req(opts, cb)
-}
-
-}).call(this,require('_process'),require("buffer").Buffer)
-},{"_process":47,"buffer":40,"request":4}],4:[function(require,module,exports){
-"use strict";
-var window = require("global/window")
-var once = require("once")
-var parseHeaders = require("parse-headers")
-
-
-var XHR = window.XMLHttpRequest || noop
-var XDR = "withCredentials" in (new XHR()) ? XHR : window.XDomainRequest
-
-module.exports = createXHR
-
-function createXHR(options, callback) {
-    function readystatechange() {
-        if (xhr.readyState === 4) {
-            loadFunc()
-        }
-    }
-
-    function getBody() {
-        // Chrome with requestType=blob throws errors arround when even testing access to responseText
-        var body = undefined
-
-        if (xhr.response) {
-            body = xhr.response
-        } else if (xhr.responseType === "text" || !xhr.responseType) {
-            body = xhr.responseText || xhr.responseXML
-        }
-
-        if (isJson) {
-            try {
-                body = JSON.parse(body)
-            } catch (e) {}
-        }
-
-        return body
-    }
-    
-    var failureResponse = {
-                body: undefined,
-                headers: {},
-                statusCode: 0,
-                method: method,
-                url: uri,
-                rawRequest: xhr
-            }
-    
-    function errorFunc(evt) {
-        clearTimeout(timeoutTimer)
-        if(!(evt instanceof Error)){
-            evt = new Error("" + (evt || "unknown") )
-        }
-        evt.statusCode = 0
-        callback(evt, failureResponse)
-    }
-
-    // will load the data & process the response in a special response object
-    function loadFunc() {
-        clearTimeout(timeoutTimer)
-        
-        var status = (xhr.status === 1223 ? 204 : xhr.status)
-        var response = failureResponse
-        var err = null
-        
-        if (status !== 0){
-            response = {
-                body: getBody(),
-                statusCode: status,
-                method: method,
-                headers: {},
-                url: uri,
-                rawRequest: xhr
-            }
-            if(xhr.getAllResponseHeaders){ //remember xhr can in fact be XDR for CORS in IE
-                response.headers = parseHeaders(xhr.getAllResponseHeaders())
-            }
-        } else {
-            err = new Error("Internal XMLHttpRequest Error")
-        }
-        callback(err, response, response.body)
-        
-    }
-    
-    if (typeof options === "string") {
-        options = { uri: options }
-    }
-
-    options = options || {}
-    if(typeof callback === "undefined"){
-        throw new Error("callback argument missing")
-    }
-    callback = once(callback)
-
-    var xhr = options.xhr || null
-
-    if (!xhr) {
-        if (options.cors || options.useXDR) {
-            xhr = new XDR()
-        }else{
-            xhr = new XHR()
-        }
-    }
-
-    var key
-    var uri = xhr.url = options.uri || options.url
-    var method = xhr.method = options.method || "GET"
-    var body = options.body || options.data
-    var headers = xhr.headers = options.headers || {}
-    var sync = !!options.sync
-    var isJson = false
-    var timeoutTimer
-
-    if ("json" in options) {
-        isJson = true
-        headers["Accept"] || (headers["Accept"] = "application/json") //Don't override existing accept header declared by user
-        if (method !== "GET" && method !== "HEAD") {
-            headers["Content-Type"] = "application/json"
-            body = JSON.stringify(options.json)
-        }
-    }
-
-    xhr.onreadystatechange = readystatechange
-    xhr.onload = loadFunc
-    xhr.onerror = errorFunc
-    // IE9 must have onprogress be set to a unique function.
-    xhr.onprogress = function () {
-        // IE must die
-    }
-    xhr.ontimeout = errorFunc
-    xhr.open(method, uri, !sync)
-    //has to be after open
-    xhr.withCredentials = !!options.withCredentials
-    
-    // Cannot set timeout with sync request
-    // not setting timeout on the xhr object, because of old webkits etc. not handling that correctly
-    // both npm's request and jquery 1.x use this kind of timeout, so this is being consistent
-    if (!sync && options.timeout > 0 ) {
-        timeoutTimer = setTimeout(function(){
-            xhr.abort("timeout");
-        }, options.timeout+2 );
-    }
-
-    if (xhr.setRequestHeader) {
-        for(key in headers){
-            if(headers.hasOwnProperty(key)){
-                xhr.setRequestHeader(key, headers[key])
-            }
-        }
-    } else if (options.headers) {
-        throw new Error("Headers cannot be set on an XDomainRequest object")
-    }
-
-    if ("responseType" in options) {
-        xhr.responseType = options.responseType
-    }
-    
-    if ("beforeSend" in options && 
-        typeof options.beforeSend === "function"
-    ) {
-        options.beforeSend(xhr)
-    }
-
-    xhr.send(body)
-
-    return xhr
-
-
-}
-
-
-function noop() {}
-
-},{"global/window":5,"once":6,"parse-headers":10}],5:[function(require,module,exports){
-(function (global){
-if (typeof window !== "undefined") {
-    module.exports = window;
-} else if (typeof global !== "undefined") {
-    module.exports = global;
-} else if (typeof self !== "undefined"){
-    module.exports = self;
-} else {
-    module.exports = {};
-}
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],6:[function(require,module,exports){
-module.exports = once
-
-once.proto = once(function () {
-  Object.defineProperty(Function.prototype, 'once', {
-    value: function () {
-      return once(this)
-    },
-    configurable: true
-  })
-})
-
-function once (fn) {
-  var called = false
-  return function () {
-    if (called) return
-    called = true
-    return fn.apply(this, arguments)
-  }
-}
-
-},{}],7:[function(require,module,exports){
-var isFunction = require('is-function')
-
-module.exports = forEach
-
-var toString = Object.prototype.toString
-var hasOwnProperty = Object.prototype.hasOwnProperty
-
-function forEach(list, iterator, context) {
-    if (!isFunction(iterator)) {
-        throw new TypeError('iterator must be a function')
-    }
-
-    if (arguments.length < 3) {
-        context = this
-    }
-    
-    if (toString.call(list) === '[object Array]')
-        forEachArray(list, iterator, context)
-    else if (typeof list === 'string')
-        forEachString(list, iterator, context)
-    else
-        forEachObject(list, iterator, context)
-}
-
-function forEachArray(array, iterator, context) {
-    for (var i = 0, len = array.length; i < len; i++) {
-        if (hasOwnProperty.call(array, i)) {
-            iterator.call(context, array[i], i, array)
-        }
-    }
-}
-
-function forEachString(string, iterator, context) {
-    for (var i = 0, len = string.length; i < len; i++) {
-        // no such thing as a sparse string.
-        iterator.call(context, string.charAt(i), i, string)
-    }
-}
-
-function forEachObject(object, iterator, context) {
-    for (var k in object) {
-        if (hasOwnProperty.call(object, k)) {
-            iterator.call(context, object[k], k, object)
-        }
-    }
-}
-
-},{"is-function":8}],8:[function(require,module,exports){
-module.exports = isFunction
-
-var toString = Object.prototype.toString
-
-function isFunction (fn) {
-  var string = toString.call(fn)
-  return string === '[object Function]' ||
-    (typeof fn === 'function' && string !== '[object RegExp]') ||
-    (typeof window !== 'undefined' &&
-     // IE8 and below
-     (fn === window.setTimeout ||
-      fn === window.alert ||
-      fn === window.confirm ||
-      fn === window.prompt))
-};
-
-},{}],9:[function(require,module,exports){
-
-exports = module.exports = trim;
-
-function trim(str){
-  return str.replace(/^\s*|\s*$/g, '');
-}
-
-exports.left = function(str){
-  return str.replace(/^\s*/, '');
-};
-
-exports.right = function(str){
-  return str.replace(/\s*$/, '');
-};
-
-},{}],10:[function(require,module,exports){
-var trim = require('trim')
-  , forEach = require('for-each')
-  , isArray = function(arg) {
-      return Object.prototype.toString.call(arg) === '[object Array]';
-    }
-
-module.exports = function (headers) {
-  if (!headers)
-    return {}
-
-  var result = {}
-
-  forEach(
-      trim(headers).split('\n')
-    , function (row) {
-        var index = row.indexOf(':')
-          , key = trim(row.slice(0, index)).toLowerCase()
-          , value = trim(row.slice(index + 1))
-
-        if (typeof(result[key]) === 'undefined') {
-          result[key] = value
-        } else if (isArray(result[key])) {
-          result[key].push(value)
-        } else {
-          result[key] = [ result[key], value ]
-        }
-      }
-  )
-
-  return result
-}
-},{"for-each":7,"trim":9}],11:[function(require,module,exports){
-(function (global){
-module.exports = Peer
-
-var debug = require('debug')('simple-peer')
-var dezalgo = require('dezalgo')
-var extend = require('xtend/mutable')
-var hat = require('hat')
-var inherits = require('inherits')
-var isTypedArray = require('is-typedarray')
-var once = require('once')
-var stream = require('stream')
-var toBuffer = require('typedarray-to-buffer')
-
-var RTCPeerConnection = typeof window !== 'undefined' &&
-    (window.mozRTCPeerConnection
-  || window.RTCPeerConnection
-  || window.webkitRTCPeerConnection)
-
-var RTCSessionDescription = typeof window !== 'undefined' &&
-    (window.mozRTCSessionDescription
-  || window.RTCSessionDescription
-  || window.webkitRTCSessionDescription)
-
-var RTCIceCandidate = typeof window !== 'undefined' &&
-    (window.mozRTCIceCandidate
-  || window.RTCIceCandidate
-  || window.webkitRTCIceCandidate)
-
-inherits(Peer, stream.Duplex)
-
-/**
- * A WebRTC peer connection.
- * @param {Object} opts
- */
-function Peer (opts) {
-  var self = this
-  if (!(self instanceof Peer)) return new Peer(opts)
-  if (!opts) opts = {}
-
-  opts.allowHalfOpen = false
-  stream.Duplex.call(self, opts)
-
-  extend(self, {
-    initiator: false,
-    stream: false,
-    config: Peer.config,
-    constraints: Peer.constraints,
-    channelName: (opts && opts.initiator) ? hat(160) : null,
-    trickle: true
-  }, opts)
-
-  self._debug('new peer (initiator: %s)', self.initiator)
-
-  self.destroyed = false
-  self.connected = false
-
-  self._pcReady = false
-  self._channelReady = false
-  self._iceComplete = false // done with ice candidate trickle (got null candidate)
-  self._channel = null
-  self._buffer = []
-
-  self._pc = new RTCPeerConnection(self.config, self.constraints)
-  self._pc.oniceconnectionstatechange = self._onIceConnectionStateChange.bind(self)
-  self._pc.onsignalingstatechange = self._onSignalingStateChange.bind(self)
-  self._pc.onicecandidate = self._onIceCandidate.bind(self)
-
-  if (self.stream) self._setupVideo(self.stream)
-  self._pc.onaddstream = self._onAddStream.bind(self)
-
-  if (self.initiator) {
-    self._setupData({ channel: self._pc.createDataChannel(self.channelName) })
-    self._pc.onnegotiationneeded = once(self._createOffer.bind(self))
-    // Firefox does not trigger "negotiationneeded"; this is a workaround
-    if (window.mozRTCPeerConnection) {
-      setTimeout(function () {
-        self._pc.onnegotiationneeded()
-      }, 0)
-    }
-  } else {
-    self._pc.ondatachannel = self._setupData.bind(self)
-  }
-
-  self.on('finish', function () {
-    if (self.connected) {
-      // When local peer is finished writing, close connection to remote peer.
-      // Half open connections are currently not supported.
-      self._destroy()
-    } else {
-      // If data channel is not connected when local peer is finished writing, wait until
-      // data is flushed to network at "connect" event.
-      // TODO: is there a more reliable way to accomplish this?
-      self.once('connect', function () {
-        setTimeout(function () {
-          self._destroy()
-        }, 100)
-      })
-    }
-  })
-}
-
-/**
- * Expose config and constraints for overriding all Peer instances. Otherwise, just
- * set opts.config and opts.constraints when constructing a Peer.
- */
-Peer.config = {
-  iceServers: [
-    {
-      url: 'stun:23.21.150.121', // deprecated, replaced by `urls`
-      urls: 'stun:23.21.150.121'
-    }
-  ]
-}
-Peer.constraints = {}
-
-Peer.prototype.send = function (chunk, cb) {
-  var self = this
-  if (cb) cb = dezalgo(cb)
-  else cb = noop
-  self._write(chunk, undefined, cb)
-}
-
-Peer.prototype.signal = function (data) {
-  var self = this
-  if (self.destroyed) throw new Error('cannot signal after peer is destroyed')
-  if (typeof data === 'string') {
-    try {
-      data = JSON.parse(data)
-    } catch (err) {
-      data = {}
-    }
-  }
-  self._debug('signal')
-  if (data.sdp) {
-    self._pc.setRemoteDescription(new RTCSessionDescription(data), function () {
-      if (self._pc.remoteDescription.type === 'offer') self._createAnswer()
-    }, self._onError.bind(self))
-  }
-  if (data.candidate) {
-    try {
-      self._pc.addIceCandidate(
-        new RTCIceCandidate(data.candidate), noop, self._onError.bind(self)
-      )
-    } catch (err) {
-      self._destroy(new Error('error adding candidate: ' + err.message))
-    }
-  }
-  if (!data.sdp && !data.candidate) {
-    self._destroy(new Error('signal() called with invalid signal data'))
-  }
-}
-
-Peer.prototype.destroy = function (onclose) {
-  var self = this
-  self._destroy(null, onclose)
-}
-
-Peer.prototype._destroy = function (err, onclose) {
-  var self = this
-  if (self.destroyed) return
-  if (onclose) self.once('close', onclose)
-
-  self._debug('destroy (error: %s)', err && err.message)
-
-  self.destroyed = true
-  self.connected = false
-  self._pcReady = false
-  self._channelReady = false
-
-  if (self._pc) {
-    try {
-      self._pc.close()
-    } catch (err) {}
-
-    self._pc.oniceconnectionstatechange = null
-    self._pc.onsignalingstatechange = null
-    self._pc.onicecandidate = null
-  }
-
-  if (self._channel) {
-    try {
-      self._channel.close()
-    } catch (err) {}
-
-    self._channel.onmessage = null
-    self._channel.onopen = null
-    self._channel.onclose = null
-  }
-  self._pc = null
-  self._channel = null
-
-  this.readable = this.writable = false
-
-  if (!self._readableState.ended) self.push(null)
-  if (!self._writableState.finished) self.end()
-
-  if (err) self.emit('error', err)
-  self.emit('close')
-}
-
-Peer.prototype._setupData = function (event) {
-  var self = this
-  self._channel = event.channel
-  self.channelName = self._channel.label
-
-  self._channel.binaryType = 'arraybuffer'
-  self._channel.onmessage = self._onChannelMessage.bind(self)
-  self._channel.onopen = self._onChannelOpen.bind(self)
-  self._channel.onclose = self._onChannelClose.bind(self)
-}
-
-Peer.prototype._setupVideo = function (stream) {
-  var self = this
-  self._pc.addStream(stream)
-}
-
-Peer.prototype._read = function () {}
-
-/**
- * Send text/binary data to the remote peer.
- * @param {string|Buffer|TypedArrayView|ArrayBuffer|Blob} chunk
- * @param {string} encoding
- * @param {function} cb
- */
-Peer.prototype._write = function (chunk, encoding, cb) {
-  var self = this
-  if (self.destroyed) return cb(new Error('cannot write after peer is destroyed'))
-
-  var len = chunk.length || chunk.byteLength || chunk.size
-  if (!self._channelReady) {
-    self._debug('_write before ready: length %d', len)
-    self._buffer.push(chunk)
-    cb(null)
-    return
-  }
-  self._debug('_write: length %d', len)
-
-  if (isTypedArray.strict(chunk) || chunk instanceof ArrayBuffer ||
-      typeof chunk === 'string' || (global.Blob && chunk instanceof global.Blob)) {
-    self._channel.send(chunk)
-  } else {
-    self._channel.send(JSON.stringify(chunk))
-  }
-
-  cb(null)
-}
-
-Peer.prototype._createOffer = function () {
-  var self = this
-  if (self.destroyed) return
-
-  self._pc.createOffer(function (offer) {
-    if (self.destroyed) return
-    speedHack(offer)
-    self._pc.setLocalDescription(offer, noop, self._onError.bind(self))
-    var sendOffer = function () {
-      self.emit('signal', self._pc.localDescription || offer)
-    }
-    if (self.trickle || self._iceComplete) sendOffer()
-    else self.once('_iceComplete', sendOffer) // wait for candidates
-  }, self._onError.bind(self))
-}
-
-Peer.prototype._createAnswer = function () {
-  var self = this
-  if (self.destroyed) return
-  self._pc.createAnswer(function (answer) {
-    if (self.destroyed) return
-    speedHack(answer)
-    self._pc.setLocalDescription(answer, noop, self._onError.bind(self))
-    var sendAnswer = function () {
-      self.emit('signal', self._pc.localDescription || answer)
-    }
-    if (self.trickle || self._iceComplete) sendAnswer()
-    else self.once('_iceComplete', sendAnswer)
-  }, self._onError.bind(self))
-}
-
-Peer.prototype._onIceConnectionStateChange = function () {
-  var self = this
-  if (self.destroyed) return
-  var iceGatheringState = self._pc.iceGatheringState
-  var iceConnectionState = self._pc.iceConnectionState
-  self.emit('iceConnectionStateChange', iceGatheringState, iceConnectionState)
-  self._debug('iceConnectionStateChange %s %s', iceGatheringState, iceConnectionState)
-  if (iceConnectionState === 'connected' || iceConnectionState === 'completed') {
-    self._pcReady = true
-    self._maybeReady()
-  }
-  if (iceConnectionState === 'disconnected' || iceConnectionState === 'closed') {
-    self._destroy()
-  }
-}
-
-Peer.prototype._maybeReady = function () {
-  var self = this
-  self._debug('maybeReady pc %s channel %s', self._pcReady, self._channelReady)
-  if (!self.connected && self._pcReady && self._channelReady) {
-    self.connected = true
-    self._buffer.forEach(function (chunk) {
-      self.send(chunk)
-    })
-    self._buffer = []
-
-    self._debug('connect')
-    self.emit('connect')
-  }
-}
-
-Peer.prototype._onSignalingStateChange = function () {
-  var self = this
-  if (self.destroyed) return
-  self.emit('signalingStateChange', self._pc.signalingState)
-  self._debug('signalingStateChange %s', self._pc.signalingState)
-}
-
-Peer.prototype._onIceCandidate = function (event) {
-  var self = this
-  if (self.destroyed) return
-  if (event.candidate && self.trickle) {
-    self.emit('signal', { candidate: event.candidate })
-  } else if (!event.candidate) {
-    self._iceComplete = true
-    self.emit('_iceComplete')
-  }
-}
-
-Peer.prototype._onChannelMessage = function (event) {
-  var self = this
-  if (self.destroyed) return
-  var data = event.data
-  self._debug('on channel message: length %d', data.byteLength || data.length)
-
-  if (data instanceof ArrayBuffer) {
-    data = toBuffer(new Uint8Array(data))
-    self.push(data)
-  } else {
-    try {
-      data = JSON.parse(data)
-    } catch (err) {}
-    self.emit('data', data)
-  }
-}
-
-Peer.prototype._onChannelOpen = function () {
-  var self = this
-  if (self.destroyed) return
-  self._debug('on channel open')
-  self._channelReady = true
-  self._maybeReady()
-}
-
-Peer.prototype._onChannelClose = function () {
-  var self = this
-  if (self.destroyed) return
-  self._debug('on channel close')
-  self._destroy()
-}
-
-Peer.prototype._onAddStream = function (event) {
-  var self = this
-  if (self.destroyed) return
-  self._debug('on add stream')
-  self.emit('stream', event.stream)
-}
-
-Peer.prototype._onError = function (err) {
-  var self = this
-  if (self.destroyed) return
-  self._debug('error %s', err.message || err)
-  self._destroy(err)
-}
-
-Peer.prototype._debug = function () {
-  var self = this
-  var args = [].slice.call(arguments)
-  var id = self.channelName && self.channelName.substring(0, 7)
-  args[0] = '[' + id + '] ' + args[0]
-  debug.apply(null, args)
-}
-
-function speedHack (obj) {
-  var s = obj.sdp.split('b=AS:30')
-  if (s.length > 1) obj.sdp = s[0] + 'b=AS:1638400' + s[1]
-}
-
-function noop () {}
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"debug":12,"dezalgo":15,"hat":18,"inherits":19,"is-typedarray":20,"once":22,"stream":59,"typedarray-to-buffer":23,"xtend/mutable":24}],12:[function(require,module,exports){
-
-/**
- * This is the web browser implementation of `debug()`.
- *
- * Expose `debug()` as the module.
- */
-
-exports = module.exports = require('./debug');
-exports.log = log;
-exports.formatArgs = formatArgs;
-exports.save = save;
-exports.load = load;
-exports.useColors = useColors;
-
-/**
- * Use chrome.storage.local if we are in an app
- */
-
-var storage;
-
-if (typeof chrome !== 'undefined' && typeof chrome.storage !== 'undefined')
-  storage = chrome.storage.local;
-else
-  storage = localstorage();
-
-/**
- * Colors.
- */
-
-exports.colors = [
-  'lightseagreen',
-  'forestgreen',
-  'goldenrod',
-  'dodgerblue',
-  'darkorchid',
-  'crimson'
-];
-
-/**
- * Currently only WebKit-based Web Inspectors, Firefox >= v31,
- * and the Firebug extension (any Firefox version) are known
- * to support "%c" CSS customizations.
- *
- * TODO: add a `localStorage` variable to explicitly enable/disable colors
- */
-
-function useColors() {
-  // is webkit? http://stackoverflow.com/a/16459606/376773
-  return ('WebkitAppearance' in document.documentElement.style) ||
-    // is firebug? http://stackoverflow.com/a/398120/376773
-    (window.console && (console.firebug || (console.exception && console.table))) ||
-    // is firefox >= v31?
-    // https://developer.mozilla.org/en-US/docs/Tools/Web_Console#Styling_messages
-    (navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) && parseInt(RegExp.$1, 10) >= 31);
-}
-
-/**
- * Map %j to `JSON.stringify()`, since no Web Inspectors do that by default.
- */
-
-exports.formatters.j = function(v) {
-  return JSON.stringify(v);
-};
-
-
-/**
- * Colorize log arguments if enabled.
- *
- * @api public
- */
-
-function formatArgs() {
-  var args = arguments;
-  var useColors = this.useColors;
-
-  args[0] = (useColors ? '%c' : '')
-    + this.namespace
-    + (useColors ? ' %c' : ' ')
-    + args[0]
-    + (useColors ? '%c ' : ' ')
-    + '+' + exports.humanize(this.diff);
-
-  if (!useColors) return args;
-
-  var c = 'color: ' + this.color;
-  args = [args[0], c, 'color: inherit'].concat(Array.prototype.slice.call(args, 1));
-
-  // the final "%c" is somewhat tricky, because there could be other
-  // arguments passed either before or after the %c, so we need to
-  // figure out the correct index to insert the CSS into
-  var index = 0;
-  var lastC = 0;
-  args[0].replace(/%[a-z%]/g, function(match) {
-    if ('%%' === match) return;
-    index++;
-    if ('%c' === match) {
-      // we only are interested in the *last* %c
-      // (the user may have provided their own)
-      lastC = index;
-    }
-  });
-
-  args.splice(lastC, 0, c);
-  return args;
-}
-
-/**
- * Invokes `console.log()` when available.
- * No-op when `console.log` is not a "function".
- *
- * @api public
- */
-
-function log() {
-  // this hackery is required for IE8/9, where
-  // the `console.log` function doesn't have 'apply'
-  return 'object' === typeof console
-    && console.log
-    && Function.prototype.apply.call(console.log, console, arguments);
-}
-
-/**
- * Save `namespaces`.
- *
- * @param {String} namespaces
- * @api private
- */
-
-function save(namespaces) {
-  try {
-    if (null == namespaces) {
-      storage.removeItem('debug');
-    } else {
-      storage.debug = namespaces;
-    }
-  } catch(e) {}
-}
-
-/**
- * Load `namespaces`.
- *
- * @return {String} returns the previously persisted debug modes
- * @api private
- */
-
-function load() {
-  var r;
-  try {
-    r = storage.debug;
-  } catch(e) {}
-  return r;
-}
-
-/**
- * Enable namespaces listed in `localStorage.debug` initially.
- */
-
-exports.enable(load());
-
-/**
- * Localstorage attempts to return the localstorage.
- *
- * This is necessary because safari throws
- * when a user disables cookies/localstorage
- * and you attempt to access it.
- *
- * @return {LocalStorage}
- * @api private
- */
-
-function localstorage(){
-  try {
-    return window.localStorage;
-  } catch (e) {}
-}
-
-},{"./debug":13}],13:[function(require,module,exports){
-
-/**
- * This is the common logic for both the Node.js and web browser
- * implementations of `debug()`.
- *
- * Expose `debug()` as the module.
- */
-
-exports = module.exports = debug;
-exports.coerce = coerce;
-exports.disable = disable;
-exports.enable = enable;
-exports.enabled = enabled;
-exports.humanize = require('ms');
-
-/**
- * The currently active debug mode names, and names to skip.
- */
-
-exports.names = [];
-exports.skips = [];
-
-/**
- * Map of special "%n" handling functions, for the debug "format" argument.
- *
- * Valid key names are a single, lowercased letter, i.e. "n".
- */
-
-exports.formatters = {};
-
-/**
- * Previously assigned color.
- */
-
-var prevColor = 0;
-
-/**
- * Previous log timestamp.
- */
-
-var prevTime;
-
-/**
- * Select a color.
- *
- * @return {Number}
- * @api private
- */
-
-function selectColor() {
-  return exports.colors[prevColor++ % exports.colors.length];
-}
-
-/**
- * Create a debugger with the given `namespace`.
- *
- * @param {String} namespace
- * @return {Function}
- * @api public
- */
-
-function debug(namespace) {
-
-  // define the `disabled` version
-  function disabled() {
-  }
-  disabled.enabled = false;
-
-  // define the `enabled` version
-  function enabled() {
-
-    var self = enabled;
-
-    // set `diff` timestamp
-    var curr = +new Date();
-    var ms = curr - (prevTime || curr);
-    self.diff = ms;
-    self.prev = prevTime;
-    self.curr = curr;
-    prevTime = curr;
-
-    // add the `color` if not set
-    if (null == self.useColors) self.useColors = exports.useColors();
-    if (null == self.color && self.useColors) self.color = selectColor();
-
-    var args = Array.prototype.slice.call(arguments);
-
-    args[0] = exports.coerce(args[0]);
-
-    if ('string' !== typeof args[0]) {
-      // anything else let's inspect with %o
-      args = ['%o'].concat(args);
-    }
-
-    // apply any `formatters` transformations
-    var index = 0;
-    args[0] = args[0].replace(/%([a-z%])/g, function(match, format) {
-      // if we encounter an escaped % then don't increase the array index
-      if (match === '%%') return match;
-      index++;
-      var formatter = exports.formatters[format];
-      if ('function' === typeof formatter) {
-        var val = args[index];
-        match = formatter.call(self, val);
-
-        // now we need to remove `args[index]` since it's inlined in the `format`
-        args.splice(index, 1);
-        index--;
-      }
-      return match;
-    });
-
-    if ('function' === typeof exports.formatArgs) {
-      args = exports.formatArgs.apply(self, args);
-    }
-    var logFn = enabled.log || exports.log || console.log.bind(console);
-    logFn.apply(self, args);
-  }
-  enabled.enabled = true;
-
-  var fn = exports.enabled(namespace) ? enabled : disabled;
-
-  fn.namespace = namespace;
-
-  return fn;
-}
-
-/**
- * Enables a debug mode by namespaces. This can include modes
- * separated by a colon and wildcards.
- *
- * @param {String} namespaces
- * @api public
- */
-
-function enable(namespaces) {
-  exports.save(namespaces);
-
-  var split = (namespaces || '').split(/[\s,]+/);
-  var len = split.length;
-
-  for (var i = 0; i < len; i++) {
-    if (!split[i]) continue; // ignore empty strings
-    namespaces = split[i].replace(/\*/g, '.*?');
-    if (namespaces[0] === '-') {
-      exports.skips.push(new RegExp('^' + namespaces.substr(1) + '$'));
-    } else {
-      exports.names.push(new RegExp('^' + namespaces + '$'));
-    }
-  }
-}
-
-/**
- * Disable debug output.
- *
- * @api public
- */
-
-function disable() {
-  exports.enable('');
-}
-
-/**
- * Returns true if the given mode name is enabled, false otherwise.
- *
- * @param {String} name
- * @return {Boolean}
- * @api public
- */
-
-function enabled(name) {
-  var i, len;
-  for (i = 0, len = exports.skips.length; i < len; i++) {
-    if (exports.skips[i].test(name)) {
-      return false;
-    }
-  }
-  for (i = 0, len = exports.names.length; i < len; i++) {
-    if (exports.names[i].test(name)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Coerce `val`.
- *
- * @param {Mixed} val
- * @return {Mixed}
- * @api private
- */
-
-function coerce(val) {
-  if (val instanceof Error) return val.stack || val.message;
-  return val;
-}
-
-},{"ms":14}],14:[function(require,module,exports){
-/**
- * Helpers.
- */
-
-var s = 1000;
-var m = s * 60;
-var h = m * 60;
-var d = h * 24;
-var y = d * 365.25;
-
-/**
- * Parse or format the given `val`.
- *
- * Options:
- *
- *  - `long` verbose formatting [false]
- *
- * @param {String|Number} val
- * @param {Object} options
- * @return {String|Number}
- * @api public
- */
-
-module.exports = function(val, options){
-  options = options || {};
-  if ('string' == typeof val) return parse(val);
-  return options.long
-    ? long(val)
-    : short(val);
-};
-
-/**
- * Parse the given `str` and return milliseconds.
- *
- * @param {String} str
- * @return {Number}
- * @api private
- */
-
-function parse(str) {
-  var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(str);
-  if (!match) return;
-  var n = parseFloat(match[1]);
-  var type = (match[2] || 'ms').toLowerCase();
-  switch (type) {
-    case 'years':
-    case 'year':
-    case 'yrs':
-    case 'yr':
-    case 'y':
-      return n * y;
-    case 'days':
-    case 'day':
-    case 'd':
-      return n * d;
-    case 'hours':
-    case 'hour':
-    case 'hrs':
-    case 'hr':
-    case 'h':
-      return n * h;
-    case 'minutes':
-    case 'minute':
-    case 'mins':
-    case 'min':
-    case 'm':
-      return n * m;
-    case 'seconds':
-    case 'second':
-    case 'secs':
-    case 'sec':
-    case 's':
-      return n * s;
-    case 'milliseconds':
-    case 'millisecond':
-    case 'msecs':
-    case 'msec':
-    case 'ms':
-      return n;
-  }
-}
-
-/**
- * Short format for `ms`.
- *
- * @param {Number} ms
- * @return {String}
- * @api private
- */
-
-function short(ms) {
-  if (ms >= d) return Math.round(ms / d) + 'd';
-  if (ms >= h) return Math.round(ms / h) + 'h';
-  if (ms >= m) return Math.round(ms / m) + 'm';
-  if (ms >= s) return Math.round(ms / s) + 's';
-  return ms + 'ms';
-}
-
-/**
- * Long format for `ms`.
- *
- * @param {Number} ms
- * @return {String}
- * @api private
- */
-
-function long(ms) {
-  return plural(ms, d, 'day')
-    || plural(ms, h, 'hour')
-    || plural(ms, m, 'minute')
-    || plural(ms, s, 'second')
-    || ms + ' ms';
-}
-
-/**
- * Pluralization helper.
- */
-
-function plural(ms, n, name) {
-  if (ms < n) return;
-  if (ms < n * 1.5) return Math.floor(ms / n) + ' ' + name;
-  return Math.ceil(ms / n) + ' ' + name + 's';
-}
-
-},{}],15:[function(require,module,exports){
-var wrappy = require('wrappy')
-module.exports = wrappy(dezalgo)
-
-var asap = require('asap')
-
-function dezalgo (cb) {
-  var sync = true
-  asap(function () {
-    sync = false
-  })
-
-  return function zalgoSafe() {
-    var args = arguments
-    var me = this
-    if (sync)
-      asap(function() {
-        cb.apply(me, args)
-      })
-    else
-      cb.apply(me, args)
-  }
-}
-
-},{"asap":16,"wrappy":17}],16:[function(require,module,exports){
-(function (process){
-
-// Use the fastest possible means to execute a task in a future turn
-// of the event loop.
-
-// linked list of tasks (single, with head node)
-var head = {task: void 0, next: null};
-var tail = head;
-var flushing = false;
-var requestFlush = void 0;
-var isNodeJS = false;
-
-function flush() {
-    /* jshint loopfunc: true */
-
-    while (head.next) {
-        head = head.next;
-        var task = head.task;
-        head.task = void 0;
-        var domain = head.domain;
-
-        if (domain) {
-            head.domain = void 0;
-            domain.enter();
-        }
-
-        try {
-            task();
-
-        } catch (e) {
-            if (isNodeJS) {
-                // In node, uncaught exceptions are considered fatal errors.
-                // Re-throw them synchronously to interrupt flushing!
-
-                // Ensure continuation if the uncaught exception is suppressed
-                // listening "uncaughtException" events (as domains does).
-                // Continue in next event to avoid tick recursion.
-                if (domain) {
-                    domain.exit();
-                }
-                setTimeout(flush, 0);
-                if (domain) {
-                    domain.enter();
-                }
-
-                throw e;
-
-            } else {
-                // In browsers, uncaught exceptions are not fatal.
-                // Re-throw them asynchronously to avoid slow-downs.
-                setTimeout(function() {
-                   throw e;
-                }, 0);
-            }
-        }
-
-        if (domain) {
-            domain.exit();
-        }
-    }
-
-    flushing = false;
-}
-
-if (typeof process !== "undefined" && process.nextTick) {
-    // Node.js before 0.9. Note that some fake-Node environments, like the
-    // Mocha test runner, introduce a `process` global without a `nextTick`.
-    isNodeJS = true;
-
-    requestFlush = function () {
-        process.nextTick(flush);
-    };
-
-} else if (typeof setImmediate === "function") {
-    // In IE10, Node.js 0.9+, or https://github.com/NobleJS/setImmediate
-    if (typeof window !== "undefined") {
-        requestFlush = setImmediate.bind(window, flush);
-    } else {
-        requestFlush = function () {
-            setImmediate(flush);
-        };
-    }
-
-} else if (typeof MessageChannel !== "undefined") {
-    // modern browsers
-    // http://www.nonblocking.io/2011/06/windownexttick.html
-    var channel = new MessageChannel();
-    channel.port1.onmessage = flush;
-    requestFlush = function () {
-        channel.port2.postMessage(0);
-    };
-
-} else {
-    // old browsers
-    requestFlush = function () {
-        setTimeout(flush, 0);
-    };
-}
-
-function asap(task) {
-    tail = tail.next = {
-        task: task,
-        domain: isNodeJS && process.domain,
-        next: null
-    };
-
-    if (!flushing) {
-        flushing = true;
-        requestFlush();
-    }
-};
-
-module.exports = asap;
-
-
-}).call(this,require('_process'))
-},{"_process":47}],17:[function(require,module,exports){
-// Returns a wrapper function that returns a wrapped callback
-// The wrapper function should do some stuff, and return a
-// presumably different callback function.
-// This makes sure that own properties are retained, so that
-// decorations and such are not lost along the way.
-module.exports = wrappy
-function wrappy (fn, cb) {
-  if (fn && cb) return wrappy(fn)(cb)
-
-  if (typeof fn !== 'function')
-    throw new TypeError('need wrapper function')
-
-  Object.keys(fn).forEach(function (k) {
-    wrapper[k] = fn[k]
-  })
-
-  return wrapper
-
-  function wrapper() {
-    var args = new Array(arguments.length)
-    for (var i = 0; i < args.length; i++) {
-      args[i] = arguments[i]
-    }
-    var ret = fn.apply(this, args)
-    var cb = args[args.length-1]
-    if (typeof ret === 'function' && ret !== cb) {
-      Object.keys(cb).forEach(function (k) {
-        ret[k] = cb[k]
-      })
-    }
-    return ret
-  }
-}
-
-},{}],18:[function(require,module,exports){
-var hat = module.exports = function (bits, base) {
-    if (!base) base = 16;
-    if (bits === undefined) bits = 128;
-    if (bits <= 0) return '0';
-    
-    var digits = Math.log(Math.pow(2, bits)) / Math.log(base);
-    for (var i = 2; digits === Infinity; i *= 2) {
-        digits = Math.log(Math.pow(2, bits / i)) / Math.log(base) * i;
-    }
-    
-    var rem = digits - Math.floor(digits);
-    
-    var res = '';
-    
-    for (var i = 0; i < Math.floor(digits); i++) {
-        var x = Math.floor(Math.random() * base).toString(base);
-        res = x + res;
-    }
-    
-    if (rem) {
-        var b = Math.pow(base, rem);
-        var x = Math.floor(Math.random() * b).toString(base);
-        res = x + res;
-    }
-    
-    var parsed = parseInt(res, base);
-    if (parsed !== Infinity && parsed >= Math.pow(2, bits)) {
-        return hat(bits, base)
-    }
-    else return res;
-};
-
-hat.rack = function (bits, base, expandBy) {
-    var fn = function (data) {
-        var iters = 0;
-        do {
-            if (iters ++ > 10) {
-                if (expandBy) bits += expandBy;
-                else throw new Error('too many ID collisions, use more bits')
-            }
-            
-            var id = hat(bits, base);
-        } while (Object.hasOwnProperty.call(hats, id));
-        
-        hats[id] = data;
-        return id;
-    };
-    var hats = fn.hats = {};
-    
-    fn.get = function (id) {
-        return fn.hats[id];
-    };
-    
-    fn.set = function (id, value) {
-        fn.hats[id] = value;
-        return fn;
-    };
-    
-    fn.bits = bits || 128;
-    fn.base = base || 16;
-    return fn;
-};
-
-},{}],19:[function(require,module,exports){
-if (typeof Object.create === 'function') {
-  // implementation from standard node.js 'util' module
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    });
-  };
-} else {
-  // old school shim for old browsers
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    var TempCtor = function () {}
-    TempCtor.prototype = superCtor.prototype
-    ctor.prototype = new TempCtor()
-    ctor.prototype.constructor = ctor
-  }
-}
-
-},{}],20:[function(require,module,exports){
-module.exports      = isTypedArray
-isTypedArray.strict = isStrictTypedArray
-isTypedArray.loose  = isLooseTypedArray
-
-var toString = Object.prototype.toString
-var names = {
-    '[object Int8Array]': true
-  , '[object Int16Array]': true
-  , '[object Int32Array]': true
-  , '[object Uint8Array]': true
-  , '[object Uint16Array]': true
-  , '[object Uint32Array]': true
-  , '[object Float32Array]': true
-  , '[object Float64Array]': true
-}
-
-function isTypedArray(arr) {
-  return (
-       isStrictTypedArray(arr)
-    || isLooseTypedArray(arr)
-  )
-}
-
-function isStrictTypedArray(arr) {
-  return (
-       arr instanceof Int8Array
-    || arr instanceof Int16Array
-    || arr instanceof Int32Array
-    || arr instanceof Uint8Array
-    || arr instanceof Uint16Array
-    || arr instanceof Uint32Array
-    || arr instanceof Float32Array
-    || arr instanceof Float64Array
-  )
-}
-
-function isLooseTypedArray(arr) {
-  return names[toString.call(arr)]
-}
-
-},{}],21:[function(require,module,exports){
-module.exports=require(17)
-},{"/Users/maxogden/src/js/screencat/node_modules/simple-peer/node_modules/dezalgo/node_modules/wrappy/wrappy.js":17}],22:[function(require,module,exports){
-var wrappy = require('wrappy')
-module.exports = wrappy(once)
-
-once.proto = once(function () {
-  Object.defineProperty(Function.prototype, 'once', {
-    value: function () {
-      return once(this)
-    },
-    configurable: true
-  })
-})
-
-function once (fn) {
-  var f = function () {
-    if (f.called) return f.value
-    f.called = true
-    return f.value = fn.apply(this, arguments)
-  }
-  f.called = false
-  return f
-}
-
-},{"wrappy":21}],23:[function(require,module,exports){
-(function (Buffer){
-/**
- * Convert a typed array to a Buffer without a copy
- *
- * Author:   Feross Aboukhadijeh <feross@feross.org> <http://feross.org>
- * License:  MIT
- *
- * `npm install typedarray-to-buffer`
- */
-
-var isTypedArray = require('is-typedarray').strict
-
-module.exports = function (arr) {
-  // If `Buffer` is the browser `buffer` module, and the browser supports typed arrays,
-  // then avoid a copy. Otherwise, create a `Buffer` with a copy.
-  var constructor = Buffer.TYPED_ARRAY_SUPPORT
-    ? Buffer._augment
-    : function (arr) { return new Buffer(arr) }
-
-  if (arr instanceof Uint8Array) {
-    return constructor(arr)
-  } else if (arr instanceof ArrayBuffer) {
-    return constructor(new Uint8Array(arr))
-  } else if (isTypedArray(arr)) {
-    // Use the typed array's underlying ArrayBuffer to back new Buffer. This respects
-    // the "view" on the ArrayBuffer, i.e. byteOffset and byteLength. No copy.
-    return constructor(new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength))
-  } else {
-    // Unsupported type, just pass it through to the `Buffer` constructor.
-    return new Buffer(arr)
-  }
-}
-
-}).call(this,require("buffer").Buffer)
-},{"buffer":40,"is-typedarray":20}],24:[function(require,module,exports){
-module.exports = extend
-
-function extend(target) {
-    for (var i = 1; i < arguments.length; i++) {
-        var source = arguments[i]
-
-        for (var key in source) {
-            if (source.hasOwnProperty(key)) {
-                target[key] = source[key]
-            }
-        }
-    }
-
-    return target
-}
-
-},{}],25:[function(require,module,exports){
-var createApp = require('./create.js')
-
-var app = createApp({}, function connected (peer, isRemote) {
-  app.ui.inputs.paste.value = ''
-
-  peer.on('error', function error (err) {
-    console.error('peer error')
-    console.error(err)
-    app.hide(app.ui.containers.video)
-    app.show(app.ui.containers.content)
-    app.ui.containers.join.innerHTML = 'Error connecting! Please Quit. ' + err.message
-  })
-
-  peer.on('close', function close () {
-    app.hide(app.ui.containers.video)
-    app.show(app.ui.containers.content)
-    app.ui.containers.join.innerHTML = 'The remote user ended the sharing session.'
-  })
-})
-
-app.ui.buttons.back.addEventListener('click', function (e) {
-  showChoose()
-})
-
-function showChoose () {
-  app.show(app.ui.containers.choose)
-  app.hide(app.ui.containers.share)
-  app.hide(app.ui.containers.join)
-  app.hide(app.ui.buttons.back)
-}
-
-function initialize () {
-  app.ui.inputs.paste.value = 'Loading...'
-  var remote = true
-  app.startHandshake(remote)
-}
-
-initialize()
-
-},{"./create.js":1}],26:[function(require,module,exports){
 // http://wiki.commonjs.org/wiki/Unit_Testing/1.0
 //
 // THIS IS NOT TESTED NOR LIKELY TO WORK OUTSIDE V8!
@@ -2454,7 +360,604 @@ var objectKeys = Object.keys || function (obj) {
   return keys;
 };
 
-},{"util/":62}],27:[function(require,module,exports){
+},{"util/":3}],2:[function(require,module,exports){
+module.exports = function isBuffer(arg) {
+  return arg && typeof arg === 'object'
+    && typeof arg.copy === 'function'
+    && typeof arg.fill === 'function'
+    && typeof arg.readUInt8 === 'function';
+}
+},{}],3:[function(require,module,exports){
+(function (process,global){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+var formatRegExp = /%[sdj%]/g;
+exports.format = function(f) {
+  if (!isString(f)) {
+    var objects = [];
+    for (var i = 0; i < arguments.length; i++) {
+      objects.push(inspect(arguments[i]));
+    }
+    return objects.join(' ');
+  }
+
+  var i = 1;
+  var args = arguments;
+  var len = args.length;
+  var str = String(f).replace(formatRegExp, function(x) {
+    if (x === '%%') return '%';
+    if (i >= len) return x;
+    switch (x) {
+      case '%s': return String(args[i++]);
+      case '%d': return Number(args[i++]);
+      case '%j':
+        try {
+          return JSON.stringify(args[i++]);
+        } catch (_) {
+          return '[Circular]';
+        }
+      default:
+        return x;
+    }
+  });
+  for (var x = args[i]; i < len; x = args[++i]) {
+    if (isNull(x) || !isObject(x)) {
+      str += ' ' + x;
+    } else {
+      str += ' ' + inspect(x);
+    }
+  }
+  return str;
+};
+
+
+// Mark that a method should not be used.
+// Returns a modified function which warns once by default.
+// If --no-deprecation is set, then it is a no-op.
+exports.deprecate = function(fn, msg) {
+  // Allow for deprecating things in the process of starting up.
+  if (isUndefined(global.process)) {
+    return function() {
+      return exports.deprecate(fn, msg).apply(this, arguments);
+    };
+  }
+
+  if (process.noDeprecation === true) {
+    return fn;
+  }
+
+  var warned = false;
+  function deprecated() {
+    if (!warned) {
+      if (process.throwDeprecation) {
+        throw new Error(msg);
+      } else if (process.traceDeprecation) {
+        console.trace(msg);
+      } else {
+        console.error(msg);
+      }
+      warned = true;
+    }
+    return fn.apply(this, arguments);
+  }
+
+  return deprecated;
+};
+
+
+var debugs = {};
+var debugEnviron;
+exports.debuglog = function(set) {
+  if (isUndefined(debugEnviron))
+    debugEnviron = process.env.NODE_DEBUG || '';
+  set = set.toUpperCase();
+  if (!debugs[set]) {
+    if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
+      var pid = process.pid;
+      debugs[set] = function() {
+        var msg = exports.format.apply(exports, arguments);
+        console.error('%s %d: %s', set, pid, msg);
+      };
+    } else {
+      debugs[set] = function() {};
+    }
+  }
+  return debugs[set];
+};
+
+
+/**
+ * Echos the value of a value. Trys to print the value out
+ * in the best way possible given the different types.
+ *
+ * @param {Object} obj The object to print out.
+ * @param {Object} opts Optional options object that alters the output.
+ */
+/* legacy: obj, showHidden, depth, colors*/
+function inspect(obj, opts) {
+  // default options
+  var ctx = {
+    seen: [],
+    stylize: stylizeNoColor
+  };
+  // legacy...
+  if (arguments.length >= 3) ctx.depth = arguments[2];
+  if (arguments.length >= 4) ctx.colors = arguments[3];
+  if (isBoolean(opts)) {
+    // legacy...
+    ctx.showHidden = opts;
+  } else if (opts) {
+    // got an "options" object
+    exports._extend(ctx, opts);
+  }
+  // set default options
+  if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
+  if (isUndefined(ctx.depth)) ctx.depth = 2;
+  if (isUndefined(ctx.colors)) ctx.colors = false;
+  if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
+  if (ctx.colors) ctx.stylize = stylizeWithColor;
+  return formatValue(ctx, obj, ctx.depth);
+}
+exports.inspect = inspect;
+
+
+// http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
+inspect.colors = {
+  'bold' : [1, 22],
+  'italic' : [3, 23],
+  'underline' : [4, 24],
+  'inverse' : [7, 27],
+  'white' : [37, 39],
+  'grey' : [90, 39],
+  'black' : [30, 39],
+  'blue' : [34, 39],
+  'cyan' : [36, 39],
+  'green' : [32, 39],
+  'magenta' : [35, 39],
+  'red' : [31, 39],
+  'yellow' : [33, 39]
+};
+
+// Don't use 'blue' not visible on cmd.exe
+inspect.styles = {
+  'special': 'cyan',
+  'number': 'yellow',
+  'boolean': 'yellow',
+  'undefined': 'grey',
+  'null': 'bold',
+  'string': 'green',
+  'date': 'magenta',
+  // "name": intentionally not styling
+  'regexp': 'red'
+};
+
+
+function stylizeWithColor(str, styleType) {
+  var style = inspect.styles[styleType];
+
+  if (style) {
+    return '\u001b[' + inspect.colors[style][0] + 'm' + str +
+           '\u001b[' + inspect.colors[style][1] + 'm';
+  } else {
+    return str;
+  }
+}
+
+
+function stylizeNoColor(str, styleType) {
+  return str;
+}
+
+
+function arrayToHash(array) {
+  var hash = {};
+
+  array.forEach(function(val, idx) {
+    hash[val] = true;
+  });
+
+  return hash;
+}
+
+
+function formatValue(ctx, value, recurseTimes) {
+  // Provide a hook for user-specified inspect functions.
+  // Check that value is an object with an inspect function on it
+  if (ctx.customInspect &&
+      value &&
+      isFunction(value.inspect) &&
+      // Filter out the util module, it's inspect function is special
+      value.inspect !== exports.inspect &&
+      // Also filter out any prototype objects using the circular check.
+      !(value.constructor && value.constructor.prototype === value)) {
+    var ret = value.inspect(recurseTimes, ctx);
+    if (!isString(ret)) {
+      ret = formatValue(ctx, ret, recurseTimes);
+    }
+    return ret;
+  }
+
+  // Primitive types cannot have properties
+  var primitive = formatPrimitive(ctx, value);
+  if (primitive) {
+    return primitive;
+  }
+
+  // Look up the keys of the object.
+  var keys = Object.keys(value);
+  var visibleKeys = arrayToHash(keys);
+
+  if (ctx.showHidden) {
+    keys = Object.getOwnPropertyNames(value);
+  }
+
+  // IE doesn't make error fields non-enumerable
+  // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
+  if (isError(value)
+      && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
+    return formatError(value);
+  }
+
+  // Some type of object without properties can be shortcutted.
+  if (keys.length === 0) {
+    if (isFunction(value)) {
+      var name = value.name ? ': ' + value.name : '';
+      return ctx.stylize('[Function' + name + ']', 'special');
+    }
+    if (isRegExp(value)) {
+      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
+    }
+    if (isDate(value)) {
+      return ctx.stylize(Date.prototype.toString.call(value), 'date');
+    }
+    if (isError(value)) {
+      return formatError(value);
+    }
+  }
+
+  var base = '', array = false, braces = ['{', '}'];
+
+  // Make Array say that they are Array
+  if (isArray(value)) {
+    array = true;
+    braces = ['[', ']'];
+  }
+
+  // Make functions say that they are functions
+  if (isFunction(value)) {
+    var n = value.name ? ': ' + value.name : '';
+    base = ' [Function' + n + ']';
+  }
+
+  // Make RegExps say that they are RegExps
+  if (isRegExp(value)) {
+    base = ' ' + RegExp.prototype.toString.call(value);
+  }
+
+  // Make dates with properties first say the date
+  if (isDate(value)) {
+    base = ' ' + Date.prototype.toUTCString.call(value);
+  }
+
+  // Make error with message first say the error
+  if (isError(value)) {
+    base = ' ' + formatError(value);
+  }
+
+  if (keys.length === 0 && (!array || value.length == 0)) {
+    return braces[0] + base + braces[1];
+  }
+
+  if (recurseTimes < 0) {
+    if (isRegExp(value)) {
+      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
+    } else {
+      return ctx.stylize('[Object]', 'special');
+    }
+  }
+
+  ctx.seen.push(value);
+
+  var output;
+  if (array) {
+    output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
+  } else {
+    output = keys.map(function(key) {
+      return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
+    });
+  }
+
+  ctx.seen.pop();
+
+  return reduceToSingleString(output, base, braces);
+}
+
+
+function formatPrimitive(ctx, value) {
+  if (isUndefined(value))
+    return ctx.stylize('undefined', 'undefined');
+  if (isString(value)) {
+    var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
+                                             .replace(/'/g, "\\'")
+                                             .replace(/\\"/g, '"') + '\'';
+    return ctx.stylize(simple, 'string');
+  }
+  if (isNumber(value))
+    return ctx.stylize('' + value, 'number');
+  if (isBoolean(value))
+    return ctx.stylize('' + value, 'boolean');
+  // For some reason typeof null is "object", so special case here.
+  if (isNull(value))
+    return ctx.stylize('null', 'null');
+}
+
+
+function formatError(value) {
+  return '[' + Error.prototype.toString.call(value) + ']';
+}
+
+
+function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
+  var output = [];
+  for (var i = 0, l = value.length; i < l; ++i) {
+    if (hasOwnProperty(value, String(i))) {
+      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
+          String(i), true));
+    } else {
+      output.push('');
+    }
+  }
+  keys.forEach(function(key) {
+    if (!key.match(/^\d+$/)) {
+      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
+          key, true));
+    }
+  });
+  return output;
+}
+
+
+function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
+  var name, str, desc;
+  desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
+  if (desc.get) {
+    if (desc.set) {
+      str = ctx.stylize('[Getter/Setter]', 'special');
+    } else {
+      str = ctx.stylize('[Getter]', 'special');
+    }
+  } else {
+    if (desc.set) {
+      str = ctx.stylize('[Setter]', 'special');
+    }
+  }
+  if (!hasOwnProperty(visibleKeys, key)) {
+    name = '[' + key + ']';
+  }
+  if (!str) {
+    if (ctx.seen.indexOf(desc.value) < 0) {
+      if (isNull(recurseTimes)) {
+        str = formatValue(ctx, desc.value, null);
+      } else {
+        str = formatValue(ctx, desc.value, recurseTimes - 1);
+      }
+      if (str.indexOf('\n') > -1) {
+        if (array) {
+          str = str.split('\n').map(function(line) {
+            return '  ' + line;
+          }).join('\n').substr(2);
+        } else {
+          str = '\n' + str.split('\n').map(function(line) {
+            return '   ' + line;
+          }).join('\n');
+        }
+      }
+    } else {
+      str = ctx.stylize('[Circular]', 'special');
+    }
+  }
+  if (isUndefined(name)) {
+    if (array && key.match(/^\d+$/)) {
+      return str;
+    }
+    name = JSON.stringify('' + key);
+    if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
+      name = name.substr(1, name.length - 2);
+      name = ctx.stylize(name, 'name');
+    } else {
+      name = name.replace(/'/g, "\\'")
+                 .replace(/\\"/g, '"')
+                 .replace(/(^"|"$)/g, "'");
+      name = ctx.stylize(name, 'string');
+    }
+  }
+
+  return name + ': ' + str;
+}
+
+
+function reduceToSingleString(output, base, braces) {
+  var numLinesEst = 0;
+  var length = output.reduce(function(prev, cur) {
+    numLinesEst++;
+    if (cur.indexOf('\n') >= 0) numLinesEst++;
+    return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
+  }, 0);
+
+  if (length > 60) {
+    return braces[0] +
+           (base === '' ? '' : base + '\n ') +
+           ' ' +
+           output.join(',\n  ') +
+           ' ' +
+           braces[1];
+  }
+
+  return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
+}
+
+
+// NOTE: These type checking functions intentionally don't use `instanceof`
+// because it is fragile and can be easily faked with `Object.create()`.
+function isArray(ar) {
+  return Array.isArray(ar);
+}
+exports.isArray = isArray;
+
+function isBoolean(arg) {
+  return typeof arg === 'boolean';
+}
+exports.isBoolean = isBoolean;
+
+function isNull(arg) {
+  return arg === null;
+}
+exports.isNull = isNull;
+
+function isNullOrUndefined(arg) {
+  return arg == null;
+}
+exports.isNullOrUndefined = isNullOrUndefined;
+
+function isNumber(arg) {
+  return typeof arg === 'number';
+}
+exports.isNumber = isNumber;
+
+function isString(arg) {
+  return typeof arg === 'string';
+}
+exports.isString = isString;
+
+function isSymbol(arg) {
+  return typeof arg === 'symbol';
+}
+exports.isSymbol = isSymbol;
+
+function isUndefined(arg) {
+  return arg === void 0;
+}
+exports.isUndefined = isUndefined;
+
+function isRegExp(re) {
+  return isObject(re) && objectToString(re) === '[object RegExp]';
+}
+exports.isRegExp = isRegExp;
+
+function isObject(arg) {
+  return typeof arg === 'object' && arg !== null;
+}
+exports.isObject = isObject;
+
+function isDate(d) {
+  return isObject(d) && objectToString(d) === '[object Date]';
+}
+exports.isDate = isDate;
+
+function isError(e) {
+  return isObject(e) &&
+      (objectToString(e) === '[object Error]' || e instanceof Error);
+}
+exports.isError = isError;
+
+function isFunction(arg) {
+  return typeof arg === 'function';
+}
+exports.isFunction = isFunction;
+
+function isPrimitive(arg) {
+  return arg === null ||
+         typeof arg === 'boolean' ||
+         typeof arg === 'number' ||
+         typeof arg === 'string' ||
+         typeof arg === 'symbol' ||  // ES6 symbol
+         typeof arg === 'undefined';
+}
+exports.isPrimitive = isPrimitive;
+
+exports.isBuffer = require('./support/isBuffer');
+
+function objectToString(o) {
+  return Object.prototype.toString.call(o);
+}
+
+
+function pad(n) {
+  return n < 10 ? '0' + n.toString(10) : n.toString(10);
+}
+
+
+var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+              'Oct', 'Nov', 'Dec'];
+
+// 26 Feb 16:19:34
+function timestamp() {
+  var d = new Date();
+  var time = [pad(d.getHours()),
+              pad(d.getMinutes()),
+              pad(d.getSeconds())].join(':');
+  return [d.getDate(), months[d.getMonth()], time].join(' ');
+}
+
+
+// log is just a thin wrapper to console.log that prepends a timestamp
+exports.log = function() {
+  console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
+};
+
+
+/**
+ * Inherit the prototype methods from one constructor into another.
+ *
+ * The Function.prototype.inherits from lang.js rewritten as a standalone
+ * function (not on Function.prototype). NOTE: If this file is to be loaded
+ * during bootstrapping this function needs to be rewritten using some native
+ * functions as prototype setup using normal JavaScript does not work as
+ * expected during bootstrapping (see mirror.js in r114903).
+ *
+ * @param {function} ctor Constructor function which needs to inherit the
+ *     prototype.
+ * @param {function} superCtor Constructor function to inherit prototype from.
+ */
+exports.inherits = require('inherits');
+
+exports._extend = function(origin, add) {
+  // Don't do anything if add isn't an object
+  if (!add || !isObject(add)) return origin;
+
+  var keys = Object.keys(add);
+  var i = keys.length;
+  while (i--) {
+    origin[keys[i]] = add[keys[i]];
+  }
+  return origin;
+};
+
+function hasOwnProperty(obj, prop) {
+  return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
+}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./support/isBuffer":2,"_process":24,"inherits":22}],4:[function(require,module,exports){
 'use strict';
 
 
@@ -2557,7 +1060,7 @@ exports.setTyped = function (on) {
 };
 
 exports.setTyped(TYPED_OK);
-},{}],28:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 'use strict';
 
 // Note: adler32 takes 12% for level 0 and 2% for level 6.
@@ -2590,7 +1093,7 @@ function adler32(adler, buf, len, pos) {
 
 
 module.exports = adler32;
-},{}],29:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 module.exports = {
 
   /* Allowed flush values; see deflate() and inflate() below for details */
@@ -2638,7 +1141,7 @@ module.exports = {
   Z_DEFLATED:               8
   //Z_NULL:                 null // Use -1 or null inline, depending on var type
 };
-},{}],30:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 'use strict';
 
 // Note: we can't get significant speed boost here.
@@ -2680,7 +1183,7 @@ function crc32(crc, buf, len, pos) {
 
 
 module.exports = crc32;
-},{}],31:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 'use strict';
 
 var utils   = require('../utils/common');
@@ -4446,7 +2949,7 @@ exports.deflatePending = deflatePending;
 exports.deflatePrime = deflatePrime;
 exports.deflateTune = deflateTune;
 */
-},{"../utils/common":27,"./adler32":28,"./crc32":30,"./messages":35,"./trees":36}],32:[function(require,module,exports){
+},{"../utils/common":4,"./adler32":5,"./crc32":7,"./messages":12,"./trees":13}],9:[function(require,module,exports){
 'use strict';
 
 // See state defs from inflate.js
@@ -4773,7 +3276,7 @@ module.exports = function inflate_fast(strm, start) {
   return;
 };
 
-},{}],33:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 'use strict';
 
 
@@ -6277,7 +4780,7 @@ exports.inflateSync = inflateSync;
 exports.inflateSyncPoint = inflateSyncPoint;
 exports.inflateUndermine = inflateUndermine;
 */
-},{"../utils/common":27,"./adler32":28,"./crc32":30,"./inffast":32,"./inftrees":34}],34:[function(require,module,exports){
+},{"../utils/common":4,"./adler32":5,"./crc32":7,"./inffast":9,"./inftrees":11}],11:[function(require,module,exports){
 'use strict';
 
 
@@ -6604,7 +5107,7 @@ module.exports = function inflate_table(type, lens, lens_index, codes, table, ta
   return 0;
 };
 
-},{"../utils/common":27}],35:[function(require,module,exports){
+},{"../utils/common":4}],12:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -6618,7 +5121,7 @@ module.exports = {
   '-5':   'buffer error',        /* Z_BUF_ERROR     (-5) */
   '-6':   'incompatible version' /* Z_VERSION_ERROR (-6) */
 };
-},{}],36:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 'use strict';
 
 
@@ -7818,7 +6321,7 @@ exports._tr_stored_block = _tr_stored_block;
 exports._tr_flush_block  = _tr_flush_block;
 exports._tr_tally = _tr_tally;
 exports._tr_align = _tr_align;
-},{"../utils/common":27}],37:[function(require,module,exports){
+},{"../utils/common":4}],14:[function(require,module,exports){
 'use strict';
 
 
@@ -7848,7 +6351,7 @@ function ZStream() {
 }
 
 module.exports = ZStream;
-},{}],38:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 (function (process,Buffer){
 var msg = require('pako/lib/zlib/messages');
 var zstream = require('pako/lib/zlib/zstream');
@@ -8088,7 +6591,7 @@ Zlib.prototype._error = function(status) {
 exports.Zlib = Zlib;
 
 }).call(this,require('_process'),require("buffer").Buffer)
-},{"_process":47,"buffer":40,"pako/lib/zlib/constants":29,"pako/lib/zlib/deflate.js":31,"pako/lib/zlib/inflate.js":33,"pako/lib/zlib/messages":35,"pako/lib/zlib/zstream":37}],39:[function(require,module,exports){
+},{"_process":24,"buffer":17,"pako/lib/zlib/constants":6,"pako/lib/zlib/deflate.js":8,"pako/lib/zlib/inflate.js":10,"pako/lib/zlib/messages":12,"pako/lib/zlib/zstream":14}],16:[function(require,module,exports){
 (function (process,Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -8702,7 +7205,7 @@ util.inherits(InflateRaw, Zlib);
 util.inherits(Unzip, Zlib);
 
 }).call(this,require('_process'),require("buffer").Buffer)
-},{"./binding":38,"_process":47,"_stream_transform":57,"assert":26,"buffer":40,"util":62}],40:[function(require,module,exports){
+},{"./binding":15,"_process":24,"_stream_transform":35,"assert":1,"buffer":17,"util":39}],17:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -9754,7 +8257,7 @@ function decodeUtf8Char (str) {
   }
 }
 
-},{"base64-js":41,"ieee754":42,"is-array":43}],41:[function(require,module,exports){
+},{"base64-js":18,"ieee754":19,"is-array":20}],18:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -9876,7 +8379,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	exports.fromByteArray = uint8ToBase64
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
-},{}],42:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 exports.read = function(buffer, offset, isLE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
@@ -9962,7 +8465,7 @@ exports.write = function(buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128;
 };
 
-},{}],43:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 
 /**
  * isArray
@@ -9997,7 +8500,7 @@ module.exports = isArray || function (val) {
   return !! val && '[object Array]' == str.call(val);
 };
 
-},{}],44:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -10057,8 +8560,10 @@ EventEmitter.prototype.emit = function(type) {
       er = arguments[1];
       if (er instanceof Error) {
         throw er; // Unhandled 'error' event
+      } else {
+        throw TypeError('Uncaught, unspecified "error" event.');
       }
-      throw TypeError('Uncaught, unspecified "error" event.');
+      return false;
     }
   }
 
@@ -10143,10 +8648,7 @@ EventEmitter.prototype.addListener = function(type, listener) {
                     'leak detected. %d listeners added. ' +
                     'Use emitter.setMaxListeners() to increase limit.',
                     this._events[type].length);
-      if (typeof console.trace === 'function') {
-        // not supported in IE 10
-        console.trace();
-      }
+      console.trace();
     }
   }
 
@@ -10300,14 +8802,37 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],45:[function(require,module,exports){
-module.exports=require(19)
-},{"/Users/maxogden/src/js/screencat/node_modules/simple-peer/node_modules/inherits/inherits_browser.js":19}],46:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
+}
+
+},{}],23:[function(require,module,exports){
 module.exports = Array.isArray || function (arr) {
   return Object.prototype.toString.call(arr) == '[object Array]';
 };
 
-},{}],47:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -10315,8 +8840,6 @@ var process = module.exports = {};
 process.nextTick = (function () {
     var canSetImmediate = typeof window !== 'undefined'
     && window.setImmediate;
-    var canMutationObserver = typeof window !== 'undefined'
-    && window.MutationObserver;
     var canPost = typeof window !== 'undefined'
     && window.postMessage && window.addEventListener
     ;
@@ -10325,29 +8848,8 @@ process.nextTick = (function () {
         return function (f) { return window.setImmediate(f) };
     }
 
-    var queue = [];
-
-    if (canMutationObserver) {
-        var hiddenDiv = document.createElement("div");
-        var observer = new MutationObserver(function () {
-            var queueList = queue.slice();
-            queue.length = 0;
-            queueList.forEach(function (fn) {
-                fn();
-            });
-        });
-
-        observer.observe(hiddenDiv, { attributes: true });
-
-        return function nextTick(fn) {
-            if (!queue.length) {
-                hiddenDiv.setAttribute('yes', 'no');
-            }
-            queue.push(fn);
-        };
-    }
-
     if (canPost) {
+        var queue = [];
         window.addEventListener('message', function (ev) {
             var source = ev.source;
             if ((source === window || source === null) && ev.data === 'process-tick') {
@@ -10387,7 +8889,7 @@ process.emit = noop;
 
 process.binding = function (name) {
     throw new Error('process.binding is not supported');
-};
+}
 
 // TODO(shtylman)
 process.cwd = function () { return '/' };
@@ -10395,10 +8897,10 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],48:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 module.exports = require("./lib/_stream_duplex.js")
 
-},{"./lib/_stream_duplex.js":49}],49:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":26}],26:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -10491,7 +8993,7 @@ function forEach (xs, f) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_readable":51,"./_stream_writable":53,"_process":47,"core-util-is":54,"inherits":45}],50:[function(require,module,exports){
+},{"./_stream_readable":28,"./_stream_writable":30,"_process":24,"core-util-is":31,"inherits":22}],27:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -10539,7 +9041,7 @@ PassThrough.prototype._transform = function(chunk, encoding, cb) {
   cb(null, chunk);
 };
 
-},{"./_stream_transform":52,"core-util-is":54,"inherits":45}],51:[function(require,module,exports){
+},{"./_stream_transform":29,"core-util-is":31,"inherits":22}],28:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -11525,7 +10027,7 @@ function indexOf (xs, x) {
 }
 
 }).call(this,require('_process'))
-},{"_process":47,"buffer":40,"core-util-is":54,"events":44,"inherits":45,"isarray":46,"stream":59,"string_decoder/":60}],52:[function(require,module,exports){
+},{"_process":24,"buffer":17,"core-util-is":31,"events":21,"inherits":22,"isarray":23,"stream":37,"string_decoder/":32}],29:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -11737,7 +10239,7 @@ function done(stream, er) {
   return stream.push(null);
 }
 
-},{"./_stream_duplex":49,"core-util-is":54,"inherits":45}],53:[function(require,module,exports){
+},{"./_stream_duplex":26,"core-util-is":31,"inherits":22}],30:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -12127,7 +10629,7 @@ function endWritable(stream, state, cb) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_duplex":49,"_process":47,"buffer":40,"core-util-is":54,"inherits":45,"stream":59}],54:[function(require,module,exports){
+},{"./_stream_duplex":26,"_process":24,"buffer":17,"core-util-is":31,"inherits":22,"stream":37}],31:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -12237,154 +10739,7 @@ function objectToString(o) {
   return Object.prototype.toString.call(o);
 }
 }).call(this,require("buffer").Buffer)
-},{"buffer":40}],55:[function(require,module,exports){
-module.exports = require("./lib/_stream_passthrough.js")
-
-},{"./lib/_stream_passthrough.js":50}],56:[function(require,module,exports){
-require('stream'); // hack to fix a circular dependency issue when used with browserify
-exports = module.exports = require('./lib/_stream_readable.js');
-exports.Readable = exports;
-exports.Writable = require('./lib/_stream_writable.js');
-exports.Duplex = require('./lib/_stream_duplex.js');
-exports.Transform = require('./lib/_stream_transform.js');
-exports.PassThrough = require('./lib/_stream_passthrough.js');
-
-},{"./lib/_stream_duplex.js":49,"./lib/_stream_passthrough.js":50,"./lib/_stream_readable.js":51,"./lib/_stream_transform.js":52,"./lib/_stream_writable.js":53,"stream":59}],57:[function(require,module,exports){
-module.exports = require("./lib/_stream_transform.js")
-
-},{"./lib/_stream_transform.js":52}],58:[function(require,module,exports){
-module.exports = require("./lib/_stream_writable.js")
-
-},{"./lib/_stream_writable.js":53}],59:[function(require,module,exports){
-// Copyright Joyent, Inc. and other Node contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to permit
-// persons to whom the Software is furnished to do so, subject to the
-// following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-module.exports = Stream;
-
-var EE = require('events').EventEmitter;
-var inherits = require('inherits');
-
-inherits(Stream, EE);
-Stream.Readable = require('readable-stream/readable.js');
-Stream.Writable = require('readable-stream/writable.js');
-Stream.Duplex = require('readable-stream/duplex.js');
-Stream.Transform = require('readable-stream/transform.js');
-Stream.PassThrough = require('readable-stream/passthrough.js');
-
-// Backwards-compat with node 0.4.x
-Stream.Stream = Stream;
-
-
-
-// old-style streams.  Note that the pipe method (the only relevant
-// part of this class) is overridden in the Readable class.
-
-function Stream() {
-  EE.call(this);
-}
-
-Stream.prototype.pipe = function(dest, options) {
-  var source = this;
-
-  function ondata(chunk) {
-    if (dest.writable) {
-      if (false === dest.write(chunk) && source.pause) {
-        source.pause();
-      }
-    }
-  }
-
-  source.on('data', ondata);
-
-  function ondrain() {
-    if (source.readable && source.resume) {
-      source.resume();
-    }
-  }
-
-  dest.on('drain', ondrain);
-
-  // If the 'end' option is not supplied, dest.end() will be called when
-  // source gets the 'end' or 'close' events.  Only dest.end() once.
-  if (!dest._isStdio && (!options || options.end !== false)) {
-    source.on('end', onend);
-    source.on('close', onclose);
-  }
-
-  var didOnEnd = false;
-  function onend() {
-    if (didOnEnd) return;
-    didOnEnd = true;
-
-    dest.end();
-  }
-
-
-  function onclose() {
-    if (didOnEnd) return;
-    didOnEnd = true;
-
-    if (typeof dest.destroy === 'function') dest.destroy();
-  }
-
-  // don't leave dangling pipes when there are errors.
-  function onerror(er) {
-    cleanup();
-    if (EE.listenerCount(this, 'error') === 0) {
-      throw er; // Unhandled stream error in pipe.
-    }
-  }
-
-  source.on('error', onerror);
-  dest.on('error', onerror);
-
-  // remove all the event listeners that were added.
-  function cleanup() {
-    source.removeListener('data', ondata);
-    dest.removeListener('drain', ondrain);
-
-    source.removeListener('end', onend);
-    source.removeListener('close', onclose);
-
-    source.removeListener('error', onerror);
-    dest.removeListener('error', onerror);
-
-    source.removeListener('end', cleanup);
-    source.removeListener('close', cleanup);
-
-    dest.removeListener('close', cleanup);
-  }
-
-  source.on('end', cleanup);
-  source.on('close', cleanup);
-
-  dest.on('close', cleanup);
-
-  dest.emit('pipe', source);
-
-  // Allow for unix-like usage: A.pipe(B).pipe(C)
-  return dest;
-};
-
-},{"events":44,"inherits":45,"readable-stream/duplex.js":48,"readable-stream/passthrough.js":55,"readable-stream/readable.js":56,"readable-stream/transform.js":57,"readable-stream/writable.js":58}],60:[function(require,module,exports){
+},{"buffer":17}],32:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -12607,15 +10962,24 @@ function base64DetectIncompleteChar(buffer) {
   this.charLength = this.charReceived ? 3 : 0;
 }
 
-},{"buffer":40}],61:[function(require,module,exports){
-module.exports = function isBuffer(arg) {
-  return arg && typeof arg === 'object'
-    && typeof arg.copy === 'function'
-    && typeof arg.fill === 'function'
-    && typeof arg.readUInt8 === 'function';
-}
-},{}],62:[function(require,module,exports){
-(function (process,global){
+},{"buffer":17}],33:[function(require,module,exports){
+module.exports = require("./lib/_stream_passthrough.js")
+
+},{"./lib/_stream_passthrough.js":27}],34:[function(require,module,exports){
+exports = module.exports = require('./lib/_stream_readable.js');
+exports.Readable = exports;
+exports.Writable = require('./lib/_stream_writable.js');
+exports.Duplex = require('./lib/_stream_duplex.js');
+exports.Transform = require('./lib/_stream_transform.js');
+exports.PassThrough = require('./lib/_stream_passthrough.js');
+
+},{"./lib/_stream_duplex.js":26,"./lib/_stream_passthrough.js":27,"./lib/_stream_readable.js":28,"./lib/_stream_transform.js":29,"./lib/_stream_writable.js":30}],35:[function(require,module,exports){
+module.exports = require("./lib/_stream_transform.js")
+
+},{"./lib/_stream_transform.js":29}],36:[function(require,module,exports){
+module.exports = require("./lib/_stream_writable.js")
+
+},{"./lib/_stream_writable.js":30}],37:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -12637,571 +11001,2262 @@ module.exports = function isBuffer(arg) {
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-var formatRegExp = /%[sdj%]/g;
-exports.format = function(f) {
-  if (!isString(f)) {
-    var objects = [];
-    for (var i = 0; i < arguments.length; i++) {
-      objects.push(inspect(arguments[i]));
+module.exports = Stream;
+
+var EE = require('events').EventEmitter;
+var inherits = require('inherits');
+
+inherits(Stream, EE);
+Stream.Readable = require('readable-stream/readable.js');
+Stream.Writable = require('readable-stream/writable.js');
+Stream.Duplex = require('readable-stream/duplex.js');
+Stream.Transform = require('readable-stream/transform.js');
+Stream.PassThrough = require('readable-stream/passthrough.js');
+
+// Backwards-compat with node 0.4.x
+Stream.Stream = Stream;
+
+
+
+// old-style streams.  Note that the pipe method (the only relevant
+// part of this class) is overridden in the Readable class.
+
+function Stream() {
+  EE.call(this);
+}
+
+Stream.prototype.pipe = function(dest, options) {
+  var source = this;
+
+  function ondata(chunk) {
+    if (dest.writable) {
+      if (false === dest.write(chunk) && source.pause) {
+        source.pause();
+      }
     }
-    return objects.join(' ');
   }
 
-  var i = 1;
-  var args = arguments;
-  var len = args.length;
-  var str = String(f).replace(formatRegExp, function(x) {
-    if (x === '%%') return '%';
-    if (i >= len) return x;
-    switch (x) {
-      case '%s': return String(args[i++]);
-      case '%d': return Number(args[i++]);
-      case '%j':
-        try {
-          return JSON.stringify(args[i++]);
-        } catch (_) {
-          return '[Circular]';
+  source.on('data', ondata);
+
+  function ondrain() {
+    if (source.readable && source.resume) {
+      source.resume();
+    }
+  }
+
+  dest.on('drain', ondrain);
+
+  // If the 'end' option is not supplied, dest.end() will be called when
+  // source gets the 'end' or 'close' events.  Only dest.end() once.
+  if (!dest._isStdio && (!options || options.end !== false)) {
+    source.on('end', onend);
+    source.on('close', onclose);
+  }
+
+  var didOnEnd = false;
+  function onend() {
+    if (didOnEnd) return;
+    didOnEnd = true;
+
+    dest.end();
+  }
+
+
+  function onclose() {
+    if (didOnEnd) return;
+    didOnEnd = true;
+
+    if (typeof dest.destroy === 'function') dest.destroy();
+  }
+
+  // don't leave dangling pipes when there are errors.
+  function onerror(er) {
+    cleanup();
+    if (EE.listenerCount(this, 'error') === 0) {
+      throw er; // Unhandled stream error in pipe.
+    }
+  }
+
+  source.on('error', onerror);
+  dest.on('error', onerror);
+
+  // remove all the event listeners that were added.
+  function cleanup() {
+    source.removeListener('data', ondata);
+    dest.removeListener('drain', ondrain);
+
+    source.removeListener('end', onend);
+    source.removeListener('close', onclose);
+
+    source.removeListener('error', onerror);
+    dest.removeListener('error', onerror);
+
+    source.removeListener('end', cleanup);
+    source.removeListener('close', cleanup);
+
+    dest.removeListener('close', cleanup);
+  }
+
+  source.on('end', cleanup);
+  source.on('close', cleanup);
+
+  dest.on('close', cleanup);
+
+  dest.emit('pipe', source);
+
+  // Allow for unix-like usage: A.pipe(B).pipe(C)
+  return dest;
+};
+
+},{"events":21,"inherits":22,"readable-stream/duplex.js":25,"readable-stream/passthrough.js":33,"readable-stream/readable.js":34,"readable-stream/transform.js":35,"readable-stream/writable.js":36}],38:[function(require,module,exports){
+module.exports=require(2)
+},{"/Users/max/src/js/browserify/node_modules/assert/node_modules/util/support/isBufferBrowser.js":2}],39:[function(require,module,exports){
+module.exports=require(3)
+},{"./support/isBuffer":38,"/Users/max/src/js/browserify/node_modules/assert/node_modules/util/util.js":3,"_process":24,"inherits":22}],40:[function(require,module,exports){
+module.exports.verifyUserRoom = function (peerConnection, ui, cb) {
+  peerConnection.getRemoteConfig(function (err, config) {
+    if (err) return cb(err)
+    ui.inputs.paste.value = ''
+
+    // first, wait for user to enter room name
+    ui.buttons.paste.addEventListener('click', onJoinClick)
+
+    function onJoinClick (ev) {
+      ev.preventDefault()
+      var room = ui.inputs.paste.value
+      ui.inputs.paste.value = 'Connecting...'
+      if (!room) return
+      peerConnection.verifyRoom(room, function (err) {
+        cb(err, room, config)
+      })
+    }
+  })
+}
+
+module.exports.remote = function (peerConnection, ui, config, room) {
+  peerConnection.remotePeer(config, room, function (err, peer) {
+    if (err) {
+      ui.inputs.paste.value = 'Error! ' + err.message
+      return
+    }
+
+    if (!room) {
+      ui.inputs.paste.value = 'Error! Please Quit'
+      return
+    }
+
+    peer.on('stream', function (stream) { renderStreams(peerConnection, ui, stream) })
+
+    peer.on('signal', function (sdp) {
+      peerConnection.handleSignal(sdp, peer, true, room, function (err) {
+        if (err) {
+          ui.containers.content.innerHTML = 'Error! Please Quit. ' + err.message
+          return
         }
-      default:
-        return x;
+        console.log('SDP POST DONE')
+      })
+    })
+
+    if (peer.connected) peerConnection.onConnect(peer, true)
+    else peer.on('connect', function () { peerConnection.onConnect(peer, true) })
+  })
+}
+
+module.exports.host = function (peerConnection, ui) {
+  getARoom(peerConnection, ui, function (err, room, config) {
+    if (err) {
+      ui.inputs.copy.value = 'Error! ' + err.message
+      return
     }
-  });
-  for (var x = args[i]; i < len; x = args[++i]) {
-    if (isNull(x) || !isObject(x)) {
-      str += ' ' + x;
-    } else {
-      str += ' ' + inspect(x);
-    }
-  }
-  return str;
-};
-
-
-// Mark that a method should not be used.
-// Returns a modified function which warns once by default.
-// If --no-deprecation is set, then it is a no-op.
-exports.deprecate = function(fn, msg) {
-  // Allow for deprecating things in the process of starting up.
-  if (isUndefined(global.process)) {
-    return function() {
-      return exports.deprecate(fn, msg).apply(this, arguments);
-    };
-  }
-
-  if (process.noDeprecation === true) {
-    return fn;
-  }
-
-  var warned = false;
-  function deprecated() {
-    if (!warned) {
-      if (process.throwDeprecation) {
-        throw new Error(msg);
-      } else if (process.traceDeprecation) {
-        console.trace(msg);
-      } else {
-        console.error(msg);
+    ui.inputs.copy.value = room
+    peerConnection.hostPeer(room, config, function (err, peer) {
+      if (err) {
+        ui.inputs.copy.value = 'Error! ' + err.message
+        return
       }
-      warned = true;
-    }
-    return fn.apply(this, arguments);
-  }
 
-  return deprecated;
-};
-
-
-var debugs = {};
-var debugEnviron;
-exports.debuglog = function(set) {
-  if (isUndefined(debugEnviron))
-    debugEnviron = process.env.NODE_DEBUG || '';
-  set = set.toUpperCase();
-  if (!debugs[set]) {
-    if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
-      var pid = process.pid;
-      debugs[set] = function() {
-        var msg = exports.format.apply(exports, arguments);
-        console.error('%s %d: %s', set, pid, msg);
-      };
-    } else {
-      debugs[set] = function() {};
-    }
-  }
-  return debugs[set];
-};
-
-
-/**
- * Echos the value of a value. Trys to print the value out
- * in the best way possible given the different types.
- *
- * @param {Object} obj The object to print out.
- * @param {Object} opts Optional options object that alters the output.
- */
-/* legacy: obj, showHidden, depth, colors*/
-function inspect(obj, opts) {
-  // default options
-  var ctx = {
-    seen: [],
-    stylize: stylizeNoColor
-  };
-  // legacy...
-  if (arguments.length >= 3) ctx.depth = arguments[2];
-  if (arguments.length >= 4) ctx.colors = arguments[3];
-  if (isBoolean(opts)) {
-    // legacy...
-    ctx.showHidden = opts;
-  } else if (opts) {
-    // got an "options" object
-    exports._extend(ctx, opts);
-  }
-  // set default options
-  if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
-  if (isUndefined(ctx.depth)) ctx.depth = 2;
-  if (isUndefined(ctx.colors)) ctx.colors = false;
-  if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
-  if (ctx.colors) ctx.stylize = stylizeWithColor;
-  return formatValue(ctx, obj, ctx.depth);
-}
-exports.inspect = inspect;
-
-
-// http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
-inspect.colors = {
-  'bold' : [1, 22],
-  'italic' : [3, 23],
-  'underline' : [4, 24],
-  'inverse' : [7, 27],
-  'white' : [37, 39],
-  'grey' : [90, 39],
-  'black' : [30, 39],
-  'blue' : [34, 39],
-  'cyan' : [36, 39],
-  'green' : [32, 39],
-  'magenta' : [35, 39],
-  'red' : [31, 39],
-  'yellow' : [33, 39]
-};
-
-// Don't use 'blue' not visible on cmd.exe
-inspect.styles = {
-  'special': 'cyan',
-  'number': 'yellow',
-  'boolean': 'yellow',
-  'undefined': 'grey',
-  'null': 'bold',
-  'string': 'green',
-  'date': 'magenta',
-  // "name": intentionally not styling
-  'regexp': 'red'
-};
-
-
-function stylizeWithColor(str, styleType) {
-  var style = inspect.styles[styleType];
-
-  if (style) {
-    return '\u001b[' + inspect.colors[style][0] + 'm' + str +
-           '\u001b[' + inspect.colors[style][1] + 'm';
-  } else {
-    return str;
-  }
-}
-
-
-function stylizeNoColor(str, styleType) {
-  return str;
-}
-
-
-function arrayToHash(array) {
-  var hash = {};
-
-  array.forEach(function(val, idx) {
-    hash[val] = true;
-  });
-
-  return hash;
-}
-
-
-function formatValue(ctx, value, recurseTimes) {
-  // Provide a hook for user-specified inspect functions.
-  // Check that value is an object with an inspect function on it
-  if (ctx.customInspect &&
-      value &&
-      isFunction(value.inspect) &&
-      // Filter out the util module, it's inspect function is special
-      value.inspect !== exports.inspect &&
-      // Also filter out any prototype objects using the circular check.
-      !(value.constructor && value.constructor.prototype === value)) {
-    var ret = value.inspect(recurseTimes, ctx);
-    if (!isString(ret)) {
-      ret = formatValue(ctx, ret, recurseTimes);
-    }
-    return ret;
-  }
-
-  // Primitive types cannot have properties
-  var primitive = formatPrimitive(ctx, value);
-  if (primitive) {
-    return primitive;
-  }
-
-  // Look up the keys of the object.
-  var keys = Object.keys(value);
-  var visibleKeys = arrayToHash(keys);
-
-  if (ctx.showHidden) {
-    keys = Object.getOwnPropertyNames(value);
-  }
-
-  // IE doesn't make error fields non-enumerable
-  // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
-  if (isError(value)
-      && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
-    return formatError(value);
-  }
-
-  // Some type of object without properties can be shortcutted.
-  if (keys.length === 0) {
-    if (isFunction(value)) {
-      var name = value.name ? ': ' + value.name : '';
-      return ctx.stylize('[Function' + name + ']', 'special');
-    }
-    if (isRegExp(value)) {
-      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-    }
-    if (isDate(value)) {
-      return ctx.stylize(Date.prototype.toString.call(value), 'date');
-    }
-    if (isError(value)) {
-      return formatError(value);
-    }
-  }
-
-  var base = '', array = false, braces = ['{', '}'];
-
-  // Make Array say that they are Array
-  if (isArray(value)) {
-    array = true;
-    braces = ['[', ']'];
-  }
-
-  // Make functions say that they are functions
-  if (isFunction(value)) {
-    var n = value.name ? ': ' + value.name : '';
-    base = ' [Function' + n + ']';
-  }
-
-  // Make RegExps say that they are RegExps
-  if (isRegExp(value)) {
-    base = ' ' + RegExp.prototype.toString.call(value);
-  }
-
-  // Make dates with properties first say the date
-  if (isDate(value)) {
-    base = ' ' + Date.prototype.toUTCString.call(value);
-  }
-
-  // Make error with message first say the error
-  if (isError(value)) {
-    base = ' ' + formatError(value);
-  }
-
-  if (keys.length === 0 && (!array || value.length == 0)) {
-    return braces[0] + base + braces[1];
-  }
-
-  if (recurseTimes < 0) {
-    if (isRegExp(value)) {
-      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-    } else {
-      return ctx.stylize('[Object]', 'special');
-    }
-  }
-
-  ctx.seen.push(value);
-
-  var output;
-  if (array) {
-    output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
-  } else {
-    output = keys.map(function(key) {
-      return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
-    });
-  }
-
-  ctx.seen.pop();
-
-  return reduceToSingleString(output, base, braces);
-}
-
-
-function formatPrimitive(ctx, value) {
-  if (isUndefined(value))
-    return ctx.stylize('undefined', 'undefined');
-  if (isString(value)) {
-    var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
-                                             .replace(/'/g, "\\'")
-                                             .replace(/\\"/g, '"') + '\'';
-    return ctx.stylize(simple, 'string');
-  }
-  if (isNumber(value))
-    return ctx.stylize('' + value, 'number');
-  if (isBoolean(value))
-    return ctx.stylize('' + value, 'boolean');
-  // For some reason typeof null is "object", so special case here.
-  if (isNull(value))
-    return ctx.stylize('null', 'null');
-}
-
-
-function formatError(value) {
-  return '[' + Error.prototype.toString.call(value) + ']';
-}
-
-
-function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
-  var output = [];
-  for (var i = 0, l = value.length; i < l; ++i) {
-    if (hasOwnProperty(value, String(i))) {
-      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-          String(i), true));
-    } else {
-      output.push('');
-    }
-  }
-  keys.forEach(function(key) {
-    if (!key.match(/^\d+$/)) {
-      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-          key, true));
-    }
-  });
-  return output;
-}
-
-
-function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
-  var name, str, desc;
-  desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
-  if (desc.get) {
-    if (desc.set) {
-      str = ctx.stylize('[Getter/Setter]', 'special');
-    } else {
-      str = ctx.stylize('[Getter]', 'special');
-    }
-  } else {
-    if (desc.set) {
-      str = ctx.stylize('[Setter]', 'special');
-    }
-  }
-  if (!hasOwnProperty(visibleKeys, key)) {
-    name = '[' + key + ']';
-  }
-  if (!str) {
-    if (ctx.seen.indexOf(desc.value) < 0) {
-      if (isNull(recurseTimes)) {
-        str = formatValue(ctx, desc.value, null);
-      } else {
-        str = formatValue(ctx, desc.value, recurseTimes - 1);
+      if (!room) {
+        ui.inputs.copy.value = 'Error! Please Quit'
+        return
       }
-      if (str.indexOf('\n') > -1) {
-        if (array) {
-          str = str.split('\n').map(function(line) {
-            return '  ' + line;
-          }).join('\n').substr(2);
+
+      peer.on('stream', function (stream) { renderStreams(peerConnection, ui, stream) })
+
+      peer.on('signal', function (sdp) {
+        peerConnection.handleSignal(sdp, peer, false, room, function (err) {
+          if (err) {
+            ui.containers.content.innerHTML = 'Error! Please Quit. ' + err.message
+            return
+          }
+        })
+      })
+
+      if (peer.connected) peerConnection.onConnect(peer, false)
+      else peer.on('connect', function () { peerConnection.onConnect(peer, false) })
+    })
+  })
+}
+
+function renderStreams (peerConnection, ui, stream) {
+  stream.getAudioTracks().forEach(function each (track) {
+    var audio = peerConnection.audioElement(stream)
+    ui.containers.multimedia.appendChild(audio)
+    ui.hide(ui.containers.multimedia)
+  })
+  stream.getVideoTracks().forEach(function each (track) {
+    var video = peerConnection.videoElement(stream)
+    ui.containers.multimedia.appendChild(video)
+    ui.hide(ui.containers.multimedia)
+  })
+}
+
+function getARoom (peerConnection, ui, cb) {
+  peerConnection.getRemoteConfig(function (err, config) {
+    if (err) return cb(err)
+    peerConnection.createRoom(function (err, room) {
+      cb(err, room, config)
+    })
+  })
+}
+
+},{}],41:[function(require,module,exports){
+module.exports = function () {
+  var getUserMedia = (
+    window.navigator.getUserMedia ||
+    window.navigator.webkitGetUserMedia ||
+    window.navigator.mozGetUserMedia ||
+    window.navigator.msGetUserMedia
+  )
+  if (!getUserMedia) return
+  return getUserMedia.bind(window.navigator)
+}
+
+},{}],42:[function(require,module,exports){
+(function (process,Buffer){
+var req = require('request')
+
+module.exports = Nets
+
+function Nets (opts, cb) {
+  if (typeof opts === 'string') opts = { uri: opts }
+
+  // in node, if encoding === null then response will be a Buffer. we want this to be the default
+  if (!opts.hasOwnProperty('encoding')) opts.encoding = null
+
+  // in browser, we should by default convert the arraybuffer into a Buffer
+  if (process.browser && !opts.hasOwnProperty('json') && opts.encoding === null) {
+    opts.responseType = 'arraybuffer'
+    var originalCb = cb
+    cb = bufferify
+  }
+
+  function bufferify (err, resp, body) {
+    if (body) body = new Buffer(new Uint8Array(body))
+    originalCb(err, resp, body)
+  }
+
+  return req(opts, cb)
+}
+
+}).call(this,require('_process'),require("buffer").Buffer)
+},{"_process":24,"buffer":17,"request":43}],43:[function(require,module,exports){
+"use strict";
+var window = require("global/window")
+var once = require("once")
+var parseHeaders = require("parse-headers")
+
+
+
+module.exports = createXHR
+createXHR.XMLHttpRequest = window.XMLHttpRequest || noop
+createXHR.XDomainRequest = "withCredentials" in (new createXHR.XMLHttpRequest()) ? createXHR.XMLHttpRequest : window.XDomainRequest
+
+
+function isEmpty(obj){
+    for(var i in obj){
+        if(obj.hasOwnProperty(i)) return false
+    }
+    return true
+}
+
+function createXHR(options, callback) {
+    function readystatechange() {
+        if (xhr.readyState === 4) {
+            loadFunc()
+        }
+    }
+
+    function getBody() {
+        // Chrome with requestType=blob throws errors arround when even testing access to responseText
+        var body = undefined
+
+        if (xhr.response) {
+            body = xhr.response
+        } else if (xhr.responseType === "text" || !xhr.responseType) {
+            body = xhr.responseText || xhr.responseXML
+        }
+
+        if (isJson) {
+            try {
+                body = JSON.parse(body)
+            } catch (e) {}
+        }
+
+        return body
+    }
+
+    var failureResponse = {
+                body: undefined,
+                headers: {},
+                statusCode: 0,
+                method: method,
+                url: uri,
+                rawRequest: xhr
+            }
+
+    function errorFunc(evt) {
+        clearTimeout(timeoutTimer)
+        if(!(evt instanceof Error)){
+            evt = new Error("" + (evt || "Unknown XMLHttpRequest Error") )
+        }
+        evt.statusCode = 0
+        callback(evt, failureResponse)
+    }
+
+    // will load the data & process the response in a special response object
+    function loadFunc() {
+        if (aborted) return
+        var status
+        clearTimeout(timeoutTimer)
+        if(options.useXDR && xhr.status===undefined) {
+            //IE8 CORS GET successful response doesn't have a status field, but body is fine
+            status = 200
         } else {
-          str = '\n' + str.split('\n').map(function(line) {
-            return '   ' + line;
-          }).join('\n');
+            status = (xhr.status === 1223 ? 204 : xhr.status)
+        }
+        var response = failureResponse
+        var err = null
+
+        if (status !== 0){
+            response = {
+                body: getBody(),
+                statusCode: status,
+                method: method,
+                headers: {},
+                url: uri,
+                rawRequest: xhr
+            }
+            if(xhr.getAllResponseHeaders){ //remember xhr can in fact be XDR for CORS in IE
+                response.headers = parseHeaders(xhr.getAllResponseHeaders())
+            }
+        } else {
+            err = new Error("Internal XMLHttpRequest Error")
+        }
+        callback(err, response, response.body)
+
+    }
+
+    if (typeof options === "string") {
+        options = { uri: options }
+    }
+
+    options = options || {}
+    if(typeof callback === "undefined"){
+        throw new Error("callback argument missing")
+    }
+    callback = once(callback)
+
+    var xhr = options.xhr || null
+
+    if (!xhr) {
+        if (options.cors || options.useXDR) {
+            xhr = new createXHR.XDomainRequest()
+        }else{
+            xhr = new createXHR.XMLHttpRequest()
+        }
+    }
+
+    var key
+    var aborted
+    var uri = xhr.url = options.uri || options.url
+    var method = xhr.method = options.method || "GET"
+    var body = options.body || options.data
+    var headers = xhr.headers = options.headers || {}
+    var sync = !!options.sync
+    var isJson = false
+    var timeoutTimer
+
+    if ("json" in options) {
+        isJson = true
+        headers["accept"] || headers["Accept"] || (headers["Accept"] = "application/json") //Don't override existing accept header declared by user
+        if (method !== "GET" && method !== "HEAD") {
+            headers["content-type"] || headers["Content-Type"] || (headers["Content-Type"] = "application/json") //Don't override existing accept header declared by user
+            body = JSON.stringify(options.json)
+        }
+    }
+
+    xhr.onreadystatechange = readystatechange
+    xhr.onload = loadFunc
+    xhr.onerror = errorFunc
+    // IE9 must have onprogress be set to a unique function.
+    xhr.onprogress = function () {
+        // IE must die
+    }
+    xhr.ontimeout = errorFunc
+    xhr.open(method, uri, !sync, options.username, options.password)
+    //has to be after open
+    if(!sync) {
+        xhr.withCredentials = !!options.withCredentials
+    }
+    // Cannot set timeout with sync request
+    // not setting timeout on the xhr object, because of old webkits etc. not handling that correctly
+    // both npm's request and jquery 1.x use this kind of timeout, so this is being consistent
+    if (!sync && options.timeout > 0 ) {
+        timeoutTimer = setTimeout(function(){
+            aborted=true//IE9 may still call readystatechange
+            xhr.abort("timeout")
+            var e = new Error("XMLHttpRequest timeout")
+            e.code = "ETIMEDOUT"
+            errorFunc(e)
+        }, options.timeout )
+    }
+
+    if (xhr.setRequestHeader) {
+        for(key in headers){
+            if(headers.hasOwnProperty(key)){
+                xhr.setRequestHeader(key, headers[key])
+            }
+        }
+    } else if (options.headers && !isEmpty(options.headers)) {
+        throw new Error("Headers cannot be set on an XDomainRequest object")
+    }
+
+    if ("responseType" in options) {
+        xhr.responseType = options.responseType
+    }
+
+    if ("beforeSend" in options &&
+        typeof options.beforeSend === "function"
+    ) {
+        options.beforeSend(xhr)
+    }
+
+    xhr.send(body)
+
+    return xhr
+
+
+}
+
+function noop() {}
+
+},{"global/window":44,"once":45,"parse-headers":49}],44:[function(require,module,exports){
+(function (global){
+if (typeof window !== "undefined") {
+    module.exports = window;
+} else if (typeof global !== "undefined") {
+    module.exports = global;
+} else if (typeof self !== "undefined"){
+    module.exports = self;
+} else {
+    module.exports = {};
+}
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],45:[function(require,module,exports){
+module.exports = once
+
+once.proto = once(function () {
+  Object.defineProperty(Function.prototype, 'once', {
+    value: function () {
+      return once(this)
+    },
+    configurable: true
+  })
+})
+
+function once (fn) {
+  var called = false
+  return function () {
+    if (called) return
+    called = true
+    return fn.apply(this, arguments)
+  }
+}
+
+},{}],46:[function(require,module,exports){
+var isFunction = require('is-function')
+
+module.exports = forEach
+
+var toString = Object.prototype.toString
+var hasOwnProperty = Object.prototype.hasOwnProperty
+
+function forEach(list, iterator, context) {
+    if (!isFunction(iterator)) {
+        throw new TypeError('iterator must be a function')
+    }
+
+    if (arguments.length < 3) {
+        context = this
+    }
+    
+    if (toString.call(list) === '[object Array]')
+        forEachArray(list, iterator, context)
+    else if (typeof list === 'string')
+        forEachString(list, iterator, context)
+    else
+        forEachObject(list, iterator, context)
+}
+
+function forEachArray(array, iterator, context) {
+    for (var i = 0, len = array.length; i < len; i++) {
+        if (hasOwnProperty.call(array, i)) {
+            iterator.call(context, array[i], i, array)
+        }
+    }
+}
+
+function forEachString(string, iterator, context) {
+    for (var i = 0, len = string.length; i < len; i++) {
+        // no such thing as a sparse string.
+        iterator.call(context, string.charAt(i), i, string)
+    }
+}
+
+function forEachObject(object, iterator, context) {
+    for (var k in object) {
+        if (hasOwnProperty.call(object, k)) {
+            iterator.call(context, object[k], k, object)
+        }
+    }
+}
+
+},{"is-function":47}],47:[function(require,module,exports){
+module.exports = isFunction
+
+var toString = Object.prototype.toString
+
+function isFunction (fn) {
+  var string = toString.call(fn)
+  return string === '[object Function]' ||
+    (typeof fn === 'function' && string !== '[object RegExp]') ||
+    (typeof window !== 'undefined' &&
+     // IE8 and below
+     (fn === window.setTimeout ||
+      fn === window.alert ||
+      fn === window.confirm ||
+      fn === window.prompt))
+};
+
+},{}],48:[function(require,module,exports){
+
+exports = module.exports = trim;
+
+function trim(str){
+  return str.replace(/^\s*|\s*$/g, '');
+}
+
+exports.left = function(str){
+  return str.replace(/^\s*/, '');
+};
+
+exports.right = function(str){
+  return str.replace(/\s*$/, '');
+};
+
+},{}],49:[function(require,module,exports){
+var trim = require('trim')
+  , forEach = require('for-each')
+  , isArray = function(arg) {
+      return Object.prototype.toString.call(arg) === '[object Array]';
+    }
+
+module.exports = function (headers) {
+  if (!headers)
+    return {}
+
+  var result = {}
+
+  forEach(
+      trim(headers).split('\n')
+    , function (row) {
+        var index = row.indexOf(':')
+          , key = trim(row.slice(0, index)).toLowerCase()
+          , value = trim(row.slice(index + 1))
+
+        if (typeof(result[key]) === 'undefined') {
+          result[key] = value
+        } else if (isArray(result[key])) {
+          result[key].push(value)
+        } else {
+          result[key] = [ result[key], value ]
         }
       }
+  )
+
+  return result
+}
+},{"for-each":46,"trim":48}],50:[function(require,module,exports){
+(function (Buffer){
+/* global Blob */
+
+module.exports = Peer
+
+var debug = require('debug')('simple-peer')
+var getBrowserRTC = require('get-browser-rtc')
+var hat = require('hat')
+var inherits = require('inherits')
+var isTypedArray = require('is-typedarray')
+var once = require('once')
+var stream = require('stream')
+var toBuffer = require('typedarray-to-buffer')
+
+inherits(Peer, stream.Duplex)
+
+/**
+ * WebRTC peer connection. Same API as node core `net.Socket`, plus a few extra methods.
+ * Duplex stream.
+ * @param {Object} opts
+ */
+function Peer (opts) {
+  var self = this
+  if (!(self instanceof Peer)) return new Peer(opts)
+  self._debug('new peer %o', opts)
+
+  if (!opts) opts = {}
+  opts.allowHalfOpen = false
+  if (opts.highWaterMark == null) opts.highWaterMark = 1024 * 1024
+
+  stream.Duplex.call(self, opts)
+
+  self.initiator = opts.initiator || false
+  self.channelConfig = opts.channelConfig || Peer.channelConfig
+  self.channelName = opts.channelName || hat(160)
+  if (!opts.initiator) self.channelName = null
+  self.config = opts.config || Peer.config
+  self.constraints = opts.constraints || Peer.constraints
+  self.reconnectTimer = opts.reconnectTimer || 0
+  self.sdpTransform = opts.sdpTransform || function (sdp) { return sdp }
+  self.stream = opts.stream || false
+  self.trickle = opts.trickle !== undefined ? opts.trickle : true
+
+  self.destroyed = false
+  self.connected = false
+
+  // so Peer object always has same shape (V8 optimization)
+  self.remoteAddress = undefined
+  self.remoteFamily = undefined
+  self.remotePort = undefined
+  self.localAddress = undefined
+  self.localPort = undefined
+
+  self._wrtc = opts.wrtc || getBrowserRTC()
+  if (!self._wrtc) {
+    if (typeof window === 'undefined') {
+      throw new Error('No WebRTC support: Specify `opts.wrtc` option in this environment')
     } else {
-      str = ctx.stylize('[Circular]', 'special');
+      throw new Error('No WebRTC support: Not a supported browser')
     }
   }
-  if (isUndefined(name)) {
-    if (array && key.match(/^\d+$/)) {
-      return str;
+
+  self._maxBufferedAmount = opts.highWaterMark
+  self._pcReady = false
+  self._channelReady = false
+  self._iceComplete = false // ice candidate trickle done (got null candidate)
+  self._channel = null
+  self._pendingCandidates = []
+
+  self._chunk = null
+  self._cb = null
+  self._interval = null
+  self._reconnectTimeout = null
+
+  self._pc = new (self._wrtc.RTCPeerConnection)(self.config, self.constraints)
+  self._pc.oniceconnectionstatechange = self._onIceConnectionStateChange.bind(self)
+  self._pc.onsignalingstatechange = self._onSignalingStateChange.bind(self)
+  self._pc.onicecandidate = self._onIceCandidate.bind(self)
+
+  if (self.stream) self._pc.addStream(self.stream)
+  self._pc.onaddstream = self._onAddStream.bind(self)
+
+  if (self.initiator) {
+    self._setupData({ channel: self._pc.createDataChannel(self.channelName, self.channelConfig) })
+    self._pc.onnegotiationneeded = once(self._createOffer.bind(self))
+    // Only Chrome triggers "negotiationneeded"; this is a workaround for other
+    // implementations
+    if (typeof window === 'undefined' || !window.webkitRTCPeerConnection) {
+      self._pc.onnegotiationneeded()
     }
-    name = JSON.stringify('' + key);
-    if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
-      name = name.substr(1, name.length - 2);
-      name = ctx.stylize(name, 'name');
+  } else {
+    self._pc.ondatachannel = self._setupData.bind(self)
+  }
+
+  self.on('finish', function () {
+    if (self.connected) {
+      // When local peer is finished writing, close connection to remote peer.
+      // Half open connections are currently not supported.
+      // Wait a bit before destroying so the datachannel flushes.
+      // TODO: is there a more reliable way to accomplish this?
+      setTimeout(function () {
+        self._destroy()
+      }, 100)
     } else {
-      name = name.replace(/'/g, "\\'")
-                 .replace(/\\"/g, '"')
-                 .replace(/(^"|"$)/g, "'");
-      name = ctx.stylize(name, 'string');
+      // If data channel is not connected when local peer is finished writing, wait until
+      // data is flushed to network at "connect" event.
+      // TODO: is there a more reliable way to accomplish this?
+      self.once('connect', function () {
+        setTimeout(function () {
+          self._destroy()
+        }, 100)
+      })
+    }
+  })
+}
+
+Peer.WEBRTC_SUPPORT = !!getBrowserRTC()
+
+/**
+ * Expose config, constraints, and data channel config for overriding all Peer
+ * instances. Otherwise, just set opts.config, opts.constraints, or opts.channelConfig
+ * when constructing a Peer.
+ */
+Peer.config = {
+  iceServers: [
+    {
+      url: 'stun:23.21.150.121', // deprecated, replaced by `urls`
+      urls: 'stun:23.21.150.121'
+    }
+  ]
+}
+Peer.constraints = {}
+Peer.channelConfig = {}
+
+Object.defineProperty(Peer.prototype, 'bufferSize', {
+  get: function () {
+    var self = this
+    return (self._channel && self._channel.bufferedAmount) || 0
+  }
+})
+
+Peer.prototype.address = function () {
+  var self = this
+  return { port: self.localPort, family: 'IPv4', address: self.localAddress }
+}
+
+Peer.prototype.signal = function (data) {
+  var self = this
+  if (self.destroyed) throw new Error('cannot signal after peer is destroyed')
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data)
+    } catch (err) {
+      data = {}
+    }
+  }
+  self._debug('signal()')
+
+  function addIceCandidate (candidate) {
+    try {
+      self._pc.addIceCandidate(
+        new self._wrtc.RTCIceCandidate(candidate), noop, self._onError.bind(self)
+      )
+    } catch (err) {
+      self._destroy(new Error('error adding candidate: ' + err.message))
     }
   }
 
-  return name + ': ' + str;
+  if (data.sdp) {
+    self._pc.setRemoteDescription(new (self._wrtc.RTCSessionDescription)(data), function () {
+      if (self.destroyed) return
+      if (self._pc.remoteDescription.type === 'offer') self._createAnswer()
+
+      self._pendingCandidates.forEach(addIceCandidate)
+      self._pendingCandidates = []
+    }, self._onError.bind(self))
+  }
+  if (data.candidate) {
+    if (self._pc.remoteDescription) addIceCandidate(data.candidate)
+    else self._pendingCandidates.push(data.candidate)
+  }
+  if (!data.sdp && !data.candidate) {
+    self._destroy(new Error('signal() called with invalid signal data'))
+  }
 }
 
+/**
+ * Send text/binary data to the remote peer.
+ * @param {TypedArrayView|ArrayBuffer|Buffer|string|Blob|Object} chunk
+ */
+Peer.prototype.send = function (chunk) {
+  var self = this
 
-function reduceToSingleString(output, base, braces) {
-  var numLinesEst = 0;
-  var length = output.reduce(function(prev, cur) {
-    numLinesEst++;
-    if (cur.indexOf('\n') >= 0) numLinesEst++;
-    return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
-  }, 0);
-
-  if (length > 60) {
-    return braces[0] +
-           (base === '' ? '' : base + '\n ') +
-           ' ' +
-           output.join(',\n  ') +
-           ' ' +
-           braces[1];
+  if (!isTypedArray.strict(chunk) && !(chunk instanceof ArrayBuffer) &&
+    !Buffer.isBuffer(chunk) && typeof chunk !== 'string' &&
+    (typeof Blob === 'undefined' || !(chunk instanceof Blob))) {
+    chunk = JSON.stringify(chunk)
   }
 
-  return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
+  // `wrtc` module doesn't accept node.js buffer
+  if (Buffer.isBuffer(chunk) && !isTypedArray.strict(chunk)) {
+    chunk = new Uint8Array(chunk)
+  }
+
+  var len = chunk.length || chunk.byteLength || chunk.size
+  self._channel.send(chunk)
+  self._debug('write: %d bytes', len)
 }
 
-
-// NOTE: These type checking functions intentionally don't use `instanceof`
-// because it is fragile and can be easily faked with `Object.create()`.
-function isArray(ar) {
-  return Array.isArray(ar);
-}
-exports.isArray = isArray;
-
-function isBoolean(arg) {
-  return typeof arg === 'boolean';
-}
-exports.isBoolean = isBoolean;
-
-function isNull(arg) {
-  return arg === null;
-}
-exports.isNull = isNull;
-
-function isNullOrUndefined(arg) {
-  return arg == null;
-}
-exports.isNullOrUndefined = isNullOrUndefined;
-
-function isNumber(arg) {
-  return typeof arg === 'number';
-}
-exports.isNumber = isNumber;
-
-function isString(arg) {
-  return typeof arg === 'string';
-}
-exports.isString = isString;
-
-function isSymbol(arg) {
-  return typeof arg === 'symbol';
-}
-exports.isSymbol = isSymbol;
-
-function isUndefined(arg) {
-  return arg === void 0;
-}
-exports.isUndefined = isUndefined;
-
-function isRegExp(re) {
-  return isObject(re) && objectToString(re) === '[object RegExp]';
-}
-exports.isRegExp = isRegExp;
-
-function isObject(arg) {
-  return typeof arg === 'object' && arg !== null;
-}
-exports.isObject = isObject;
-
-function isDate(d) {
-  return isObject(d) && objectToString(d) === '[object Date]';
-}
-exports.isDate = isDate;
-
-function isError(e) {
-  return isObject(e) &&
-      (objectToString(e) === '[object Error]' || e instanceof Error);
-}
-exports.isError = isError;
-
-function isFunction(arg) {
-  return typeof arg === 'function';
-}
-exports.isFunction = isFunction;
-
-function isPrimitive(arg) {
-  return arg === null ||
-         typeof arg === 'boolean' ||
-         typeof arg === 'number' ||
-         typeof arg === 'string' ||
-         typeof arg === 'symbol' ||  // ES6 symbol
-         typeof arg === 'undefined';
-}
-exports.isPrimitive = isPrimitive;
-
-exports.isBuffer = require('./support/isBuffer');
-
-function objectToString(o) {
-  return Object.prototype.toString.call(o);
+Peer.prototype.destroy = function (onclose) {
+  var self = this
+  self._destroy(null, onclose)
 }
 
+Peer.prototype._destroy = function (err, onclose) {
+  var self = this
+  if (self.destroyed) return
+  if (onclose) self.once('close', onclose)
 
-function pad(n) {
-  return n < 10 ? '0' + n.toString(10) : n.toString(10);
+  self._debug('destroy (error: %s)', err && err.message)
+
+  self.readable = self.writable = false
+
+  if (!self._readableState.ended) self.push(null)
+  if (!self._writableState.finished) self.end()
+
+  self.destroyed = true
+  self.connected = false
+  self._pcReady = false
+  self._channelReady = false
+
+  self._chunk = null
+  self._cb = null
+  clearInterval(self._interval)
+  clearTimeout(self._reconnectTimeout)
+
+  if (self._pc) {
+    try {
+      self._pc.close()
+    } catch (err) {}
+
+    self._pc.oniceconnectionstatechange = null
+    self._pc.onsignalingstatechange = null
+    self._pc.onicecandidate = null
+  }
+
+  if (self._channel) {
+    try {
+      self._channel.close()
+    } catch (err) {}
+
+    self._channel.onmessage = null
+    self._channel.onopen = null
+    self._channel.onclose = null
+  }
+  self._pc = null
+  self._channel = null
+
+  if (err) self.emit('error', err)
+  self.emit('close')
 }
 
+Peer.prototype._setupData = function (event) {
+  var self = this
+  self._channel = event.channel
+  self.channelName = self._channel.label
 
-var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-              'Oct', 'Nov', 'Dec'];
-
-// 26 Feb 16:19:34
-function timestamp() {
-  var d = new Date();
-  var time = [pad(d.getHours()),
-              pad(d.getMinutes()),
-              pad(d.getSeconds())].join(':');
-  return [d.getDate(), months[d.getMonth()], time].join(' ');
+  self._channel.binaryType = 'arraybuffer'
+  self._channel.onmessage = self._onChannelMessage.bind(self)
+  self._channel.onopen = self._onChannelOpen.bind(self)
+  self._channel.onclose = self._onChannelClose.bind(self)
 }
 
+Peer.prototype._read = function () {}
 
-// log is just a thin wrapper to console.log that prepends a timestamp
-exports.log = function() {
-  console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
+Peer.prototype._write = function (chunk, encoding, cb) {
+  var self = this
+  if (self.destroyed) return cb(new Error('cannot write after peer is destroyed'))
+
+  if (self.connected) {
+    try {
+      self.send(chunk)
+    } catch (err) {
+      return self._onError(err)
+    }
+    if (self._channel.bufferedAmount > self._maxBufferedAmount) {
+      self._debug('start backpressure: bufferedAmount %d', self._channel.bufferedAmount)
+      self._cb = cb
+    } else {
+      cb(null)
+    }
+  } else {
+    self._debug('write before connect')
+    self._chunk = chunk
+    self._cb = cb
+  }
+}
+
+Peer.prototype._createOffer = function () {
+  var self = this
+  if (self.destroyed) return
+
+  self._pc.createOffer(function (offer) {
+    if (self.destroyed) return
+    offer.sdp = self.sdpTransform(offer.sdp)
+    self._pc.setLocalDescription(offer, noop, self._onError.bind(self))
+    var sendOffer = function () {
+      var signal = self._pc.localDescription || offer
+      self._debug('signal')
+      self.emit('signal', {
+        type: signal.type,
+        sdp: signal.sdp
+      })
+    }
+    if (self.trickle || self._iceComplete) sendOffer()
+    else self.once('_iceComplete', sendOffer) // wait for candidates
+  }, self._onError.bind(self), self.offerConstraints)
+}
+
+Peer.prototype._createAnswer = function () {
+  var self = this
+  if (self.destroyed) return
+
+  self._pc.createAnswer(function (answer) {
+    if (self.destroyed) return
+    answer.sdp = self.sdpTransform(answer.sdp)
+    self._pc.setLocalDescription(answer, noop, self._onError.bind(self))
+    var sendAnswer = function () {
+      var signal = self._pc.localDescription || answer
+      self._debug('signal')
+      self.emit('signal', {
+        type: signal.type,
+        sdp: signal.sdp
+      })
+    }
+    if (self.trickle || self._iceComplete) sendAnswer()
+    else self.once('_iceComplete', sendAnswer)
+  }, self._onError.bind(self), self.answerConstraints)
+}
+
+Peer.prototype._onIceConnectionStateChange = function () {
+  var self = this
+  if (self.destroyed) return
+  var iceGatheringState = self._pc.iceGatheringState
+  var iceConnectionState = self._pc.iceConnectionState
+  self._debug('iceConnectionStateChange %s %s', iceGatheringState, iceConnectionState)
+  self.emit('iceConnectionStateChange', iceGatheringState, iceConnectionState)
+  if (iceConnectionState === 'connected' || iceConnectionState === 'completed') {
+    clearTimeout(self._reconnectTimeout)
+    self._pcReady = true
+    self._maybeReady()
+  }
+  if (iceConnectionState === 'disconnected') {
+    if (self.reconnectTimer) {
+      // If user has set `opt.reconnectTimer`, allow time for ICE to attempt a reconnect
+      clearTimeout(self._reconnectTimeout)
+      self._reconnectTimeout = setTimeout(function () {
+        self._destroy()
+      }, self.reconnectTimer)
+    } else {
+      self._destroy()
+    }
+  }
+  if (iceConnectionState === 'closed') {
+    self._destroy()
+  }
+}
+
+Peer.prototype._maybeReady = function () {
+  var self = this
+  self._debug('maybeReady pc %s channel %s', self._pcReady, self._channelReady)
+  if (self.connected || self._connecting || !self._pcReady || !self._channelReady) return
+  self._connecting = true
+
+  if (typeof window !== 'undefined' && !!window.mozRTCPeerConnection) {
+    self._pc.getStats(null, function (res) {
+      var items = []
+      res.forEach(function (item) {
+        items.push(item)
+      })
+      onStats(items)
+    }, self._onError.bind(self))
+  } else {
+    self._pc.getStats(function (res) {
+      var items = []
+      res.result().forEach(function (result) {
+        var item = {}
+        result.names().forEach(function (name) {
+          item[name] = result.stat(name)
+        })
+        item.id = result.id
+        item.type = result.type
+        item.timestamp = result.timestamp
+        items.push(item)
+      })
+      onStats(items)
+    })
+  }
+
+  function onStats (items) {
+    items.forEach(function (item) {
+      if (item.type === 'remotecandidate') {
+        self.remoteAddress = item.ipAddress
+        self.remotePort = Number(item.portNumber)
+        self.remoteFamily = 'IPv4'
+        self._debug(
+          'connect remote: %s:%s (%s)',
+          self.remoteAddress, self.remotePort, self.remoteFamily
+        )
+      } else if (item.type === 'localcandidate' && item.candidateType === 'host') {
+        self.localAddress = item.ipAddress
+        self.localPort = Number(item.portNumber)
+        self._debug('connect local: %s:%s', self.localAddress, self.localPort)
+      }
+    })
+
+    self._connecting = false
+    self.connected = true
+
+    if (self._chunk) {
+      try {
+        self.send(self._chunk)
+      } catch (err) {
+        return self._onError(err)
+      }
+      self._chunk = null
+      self._debug('sent chunk from "write before connect"')
+
+      var cb = self._cb
+      self._cb = null
+      cb(null)
+    }
+
+    self._interval = setInterval(function () {
+      if (!self._cb || !self._channel || self._channel.bufferedAmount > self._maxBufferedAmount) return
+      self._debug('ending backpressure: bufferedAmount %d', self._channel.bufferedAmount)
+      var cb = self._cb
+      self._cb = null
+      cb(null)
+    }, 150)
+    if (self._interval.unref) self._interval.unref()
+
+    self._debug('connect')
+    self.emit('connect')
+  }
+}
+
+Peer.prototype._onSignalingStateChange = function () {
+  var self = this
+  if (self.destroyed) return
+  self._debug('signalingStateChange %s', self._pc.signalingState)
+  self.emit('signalingStateChange', self._pc.signalingState)
+}
+
+Peer.prototype._onIceCandidate = function (event) {
+  var self = this
+  if (self.destroyed) return
+  if (event.candidate && self.trickle) {
+    self.emit('signal', {
+      candidate: {
+        candidate: event.candidate.candidate,
+        sdpMLineIndex: event.candidate.sdpMLineIndex,
+        sdpMid: event.candidate.sdpMid
+      }
+    })
+  } else if (!event.candidate) {
+    self._iceComplete = true
+    self.emit('_iceComplete')
+  }
+}
+
+Peer.prototype._onChannelMessage = function (event) {
+  var self = this
+  if (self.destroyed) return
+  var data = event.data
+  self._debug('read: %d bytes', data.byteLength || data.length)
+
+  if (data instanceof ArrayBuffer) {
+    data = toBuffer(new Uint8Array(data))
+    self.push(data)
+  } else {
+    try {
+      data = JSON.parse(data)
+    } catch (err) {}
+    self.emit('data', data)
+  }
+}
+
+Peer.prototype._onChannelOpen = function () {
+  var self = this
+  if (self.connected || self.destroyed) return
+  self._debug('on channel open')
+  self._channelReady = true
+  self._maybeReady()
+}
+
+Peer.prototype._onChannelClose = function () {
+  var self = this
+  if (self.destroyed) return
+  self._debug('on channel close')
+  self._destroy()
+}
+
+Peer.prototype._onAddStream = function (event) {
+  var self = this
+  if (self.destroyed) return
+  self._debug('on add stream')
+  self.emit('stream', event.stream)
+}
+
+Peer.prototype._onError = function (err) {
+  var self = this
+  if (self.destroyed) return
+  self._debug('error %s', err.message || err)
+  self._destroy(err)
+}
+
+Peer.prototype._debug = function () {
+  var self = this
+  var args = [].slice.call(arguments)
+  var id = self.channelName && self.channelName.substring(0, 7)
+  args[0] = '[' + id + '] ' + args[0]
+  debug.apply(null, args)
+}
+
+function noop () {}
+
+}).call(this,require("buffer").Buffer)
+},{"buffer":17,"debug":51,"get-browser-rtc":54,"hat":55,"inherits":56,"is-typedarray":57,"once":59,"stream":37,"typedarray-to-buffer":60}],51:[function(require,module,exports){
+
+/**
+ * This is the web browser implementation of `debug()`.
+ *
+ * Expose `debug()` as the module.
+ */
+
+exports = module.exports = require('./debug');
+exports.log = log;
+exports.formatArgs = formatArgs;
+exports.save = save;
+exports.load = load;
+exports.useColors = useColors;
+exports.storage = 'undefined' != typeof chrome
+               && 'undefined' != typeof chrome.storage
+                  ? chrome.storage.local
+                  : localstorage();
+
+/**
+ * Colors.
+ */
+
+exports.colors = [
+  'lightseagreen',
+  'forestgreen',
+  'goldenrod',
+  'dodgerblue',
+  'darkorchid',
+  'crimson'
+];
+
+/**
+ * Currently only WebKit-based Web Inspectors, Firefox >= v31,
+ * and the Firebug extension (any Firefox version) are known
+ * to support "%c" CSS customizations.
+ *
+ * TODO: add a `localStorage` variable to explicitly enable/disable colors
+ */
+
+function useColors() {
+  // is webkit? http://stackoverflow.com/a/16459606/376773
+  return ('WebkitAppearance' in document.documentElement.style) ||
+    // is firebug? http://stackoverflow.com/a/398120/376773
+    (window.console && (console.firebug || (console.exception && console.table))) ||
+    // is firefox >= v31?
+    // https://developer.mozilla.org/en-US/docs/Tools/Web_Console#Styling_messages
+    (navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) && parseInt(RegExp.$1, 10) >= 31);
+}
+
+/**
+ * Map %j to `JSON.stringify()`, since no Web Inspectors do that by default.
+ */
+
+exports.formatters.j = function(v) {
+  return JSON.stringify(v);
 };
 
 
 /**
- * Inherit the prototype methods from one constructor into another.
+ * Colorize log arguments if enabled.
  *
- * The Function.prototype.inherits from lang.js rewritten as a standalone
- * function (not on Function.prototype). NOTE: If this file is to be loaded
- * during bootstrapping this function needs to be rewritten using some native
- * functions as prototype setup using normal JavaScript does not work as
- * expected during bootstrapping (see mirror.js in r114903).
- *
- * @param {function} ctor Constructor function which needs to inherit the
- *     prototype.
- * @param {function} superCtor Constructor function to inherit prototype from.
+ * @api public
  */
-exports.inherits = require('inherits');
 
-exports._extend = function(origin, add) {
-  // Don't do anything if add isn't an object
-  if (!add || !isObject(add)) return origin;
+function formatArgs() {
+  var args = arguments;
+  var useColors = this.useColors;
 
-  var keys = Object.keys(add);
-  var i = keys.length;
-  while (i--) {
-    origin[keys[i]] = add[keys[i]];
-  }
-  return origin;
-};
+  args[0] = (useColors ? '%c' : '')
+    + this.namespace
+    + (useColors ? ' %c' : ' ')
+    + args[0]
+    + (useColors ? '%c ' : ' ')
+    + '+' + exports.humanize(this.diff);
 
-function hasOwnProperty(obj, prop) {
-  return Object.prototype.hasOwnProperty.call(obj, prop);
+  if (!useColors) return args;
+
+  var c = 'color: ' + this.color;
+  args = [args[0], c, 'color: inherit'].concat(Array.prototype.slice.call(args, 1));
+
+  // the final "%c" is somewhat tricky, because there could be other
+  // arguments passed either before or after the %c, so we need to
+  // figure out the correct index to insert the CSS into
+  var index = 0;
+  var lastC = 0;
+  args[0].replace(/%[a-z%]/g, function(match) {
+    if ('%%' === match) return;
+    index++;
+    if ('%c' === match) {
+      // we only are interested in the *last* %c
+      // (the user may have provided their own)
+      lastC = index;
+    }
+  });
+
+  args.splice(lastC, 0, c);
+  return args;
 }
 
-}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":61,"_process":47,"inherits":45}]},{},[25]);
+/**
+ * Invokes `console.log()` when available.
+ * No-op when `console.log` is not a "function".
+ *
+ * @api public
+ */
+
+function log() {
+  // this hackery is required for IE8/9, where
+  // the `console.log` function doesn't have 'apply'
+  return 'object' === typeof console
+    && console.log
+    && Function.prototype.apply.call(console.log, console, arguments);
+}
+
+/**
+ * Save `namespaces`.
+ *
+ * @param {String} namespaces
+ * @api private
+ */
+
+function save(namespaces) {
+  try {
+    if (null == namespaces) {
+      exports.storage.removeItem('debug');
+    } else {
+      exports.storage.debug = namespaces;
+    }
+  } catch(e) {}
+}
+
+/**
+ * Load `namespaces`.
+ *
+ * @return {String} returns the previously persisted debug modes
+ * @api private
+ */
+
+function load() {
+  var r;
+  try {
+    r = exports.storage.debug;
+  } catch(e) {}
+  return r;
+}
+
+/**
+ * Enable namespaces listed in `localStorage.debug` initially.
+ */
+
+exports.enable(load());
+
+/**
+ * Localstorage attempts to return the localstorage.
+ *
+ * This is necessary because safari throws
+ * when a user disables cookies/localstorage
+ * and you attempt to access it.
+ *
+ * @return {LocalStorage}
+ * @api private
+ */
+
+function localstorage(){
+  try {
+    return window.localStorage;
+  } catch (e) {}
+}
+
+},{"./debug":52}],52:[function(require,module,exports){
+
+/**
+ * This is the common logic for both the Node.js and web browser
+ * implementations of `debug()`.
+ *
+ * Expose `debug()` as the module.
+ */
+
+exports = module.exports = debug;
+exports.coerce = coerce;
+exports.disable = disable;
+exports.enable = enable;
+exports.enabled = enabled;
+exports.humanize = require('ms');
+
+/**
+ * The currently active debug mode names, and names to skip.
+ */
+
+exports.names = [];
+exports.skips = [];
+
+/**
+ * Map of special "%n" handling functions, for the debug "format" argument.
+ *
+ * Valid key names are a single, lowercased letter, i.e. "n".
+ */
+
+exports.formatters = {};
+
+/**
+ * Previously assigned color.
+ */
+
+var prevColor = 0;
+
+/**
+ * Previous log timestamp.
+ */
+
+var prevTime;
+
+/**
+ * Select a color.
+ *
+ * @return {Number}
+ * @api private
+ */
+
+function selectColor() {
+  return exports.colors[prevColor++ % exports.colors.length];
+}
+
+/**
+ * Create a debugger with the given `namespace`.
+ *
+ * @param {String} namespace
+ * @return {Function}
+ * @api public
+ */
+
+function debug(namespace) {
+
+  // define the `disabled` version
+  function disabled() {
+  }
+  disabled.enabled = false;
+
+  // define the `enabled` version
+  function enabled() {
+
+    var self = enabled;
+
+    // set `diff` timestamp
+    var curr = +new Date();
+    var ms = curr - (prevTime || curr);
+    self.diff = ms;
+    self.prev = prevTime;
+    self.curr = curr;
+    prevTime = curr;
+
+    // add the `color` if not set
+    if (null == self.useColors) self.useColors = exports.useColors();
+    if (null == self.color && self.useColors) self.color = selectColor();
+
+    var args = Array.prototype.slice.call(arguments);
+
+    args[0] = exports.coerce(args[0]);
+
+    if ('string' !== typeof args[0]) {
+      // anything else let's inspect with %o
+      args = ['%o'].concat(args);
+    }
+
+    // apply any `formatters` transformations
+    var index = 0;
+    args[0] = args[0].replace(/%([a-z%])/g, function(match, format) {
+      // if we encounter an escaped % then don't increase the array index
+      if (match === '%%') return match;
+      index++;
+      var formatter = exports.formatters[format];
+      if ('function' === typeof formatter) {
+        var val = args[index];
+        match = formatter.call(self, val);
+
+        // now we need to remove `args[index]` since it's inlined in the `format`
+        args.splice(index, 1);
+        index--;
+      }
+      return match;
+    });
+
+    if ('function' === typeof exports.formatArgs) {
+      args = exports.formatArgs.apply(self, args);
+    }
+    var logFn = enabled.log || exports.log || console.log.bind(console);
+    logFn.apply(self, args);
+  }
+  enabled.enabled = true;
+
+  var fn = exports.enabled(namespace) ? enabled : disabled;
+
+  fn.namespace = namespace;
+
+  return fn;
+}
+
+/**
+ * Enables a debug mode by namespaces. This can include modes
+ * separated by a colon and wildcards.
+ *
+ * @param {String} namespaces
+ * @api public
+ */
+
+function enable(namespaces) {
+  exports.save(namespaces);
+
+  var split = (namespaces || '').split(/[\s,]+/);
+  var len = split.length;
+
+  for (var i = 0; i < len; i++) {
+    if (!split[i]) continue; // ignore empty strings
+    namespaces = split[i].replace(/\*/g, '.*?');
+    if (namespaces[0] === '-') {
+      exports.skips.push(new RegExp('^' + namespaces.substr(1) + '$'));
+    } else {
+      exports.names.push(new RegExp('^' + namespaces + '$'));
+    }
+  }
+}
+
+/**
+ * Disable debug output.
+ *
+ * @api public
+ */
+
+function disable() {
+  exports.enable('');
+}
+
+/**
+ * Returns true if the given mode name is enabled, false otherwise.
+ *
+ * @param {String} name
+ * @return {Boolean}
+ * @api public
+ */
+
+function enabled(name) {
+  var i, len;
+  for (i = 0, len = exports.skips.length; i < len; i++) {
+    if (exports.skips[i].test(name)) {
+      return false;
+    }
+  }
+  for (i = 0, len = exports.names.length; i < len; i++) {
+    if (exports.names[i].test(name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Coerce `val`.
+ *
+ * @param {Mixed} val
+ * @return {Mixed}
+ * @api private
+ */
+
+function coerce(val) {
+  if (val instanceof Error) return val.stack || val.message;
+  return val;
+}
+
+},{"ms":53}],53:[function(require,module,exports){
+/**
+ * Helpers.
+ */
+
+var s = 1000;
+var m = s * 60;
+var h = m * 60;
+var d = h * 24;
+var y = d * 365.25;
+
+/**
+ * Parse or format the given `val`.
+ *
+ * Options:
+ *
+ *  - `long` verbose formatting [false]
+ *
+ * @param {String|Number} val
+ * @param {Object} options
+ * @return {String|Number}
+ * @api public
+ */
+
+module.exports = function(val, options){
+  options = options || {};
+  if ('string' == typeof val) return parse(val);
+  return options.long
+    ? long(val)
+    : short(val);
+};
+
+/**
+ * Parse the given `str` and return milliseconds.
+ *
+ * @param {String} str
+ * @return {Number}
+ * @api private
+ */
+
+function parse(str) {
+  str = '' + str;
+  if (str.length > 10000) return;
+  var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(str);
+  if (!match) return;
+  var n = parseFloat(match[1]);
+  var type = (match[2] || 'ms').toLowerCase();
+  switch (type) {
+    case 'years':
+    case 'year':
+    case 'yrs':
+    case 'yr':
+    case 'y':
+      return n * y;
+    case 'days':
+    case 'day':
+    case 'd':
+      return n * d;
+    case 'hours':
+    case 'hour':
+    case 'hrs':
+    case 'hr':
+    case 'h':
+      return n * h;
+    case 'minutes':
+    case 'minute':
+    case 'mins':
+    case 'min':
+    case 'm':
+      return n * m;
+    case 'seconds':
+    case 'second':
+    case 'secs':
+    case 'sec':
+    case 's':
+      return n * s;
+    case 'milliseconds':
+    case 'millisecond':
+    case 'msecs':
+    case 'msec':
+    case 'ms':
+      return n;
+  }
+}
+
+/**
+ * Short format for `ms`.
+ *
+ * @param {Number} ms
+ * @return {String}
+ * @api private
+ */
+
+function short(ms) {
+  if (ms >= d) return Math.round(ms / d) + 'd';
+  if (ms >= h) return Math.round(ms / h) + 'h';
+  if (ms >= m) return Math.round(ms / m) + 'm';
+  if (ms >= s) return Math.round(ms / s) + 's';
+  return ms + 'ms';
+}
+
+/**
+ * Long format for `ms`.
+ *
+ * @param {Number} ms
+ * @return {String}
+ * @api private
+ */
+
+function long(ms) {
+  return plural(ms, d, 'day')
+    || plural(ms, h, 'hour')
+    || plural(ms, m, 'minute')
+    || plural(ms, s, 'second')
+    || ms + ' ms';
+}
+
+/**
+ * Pluralization helper.
+ */
+
+function plural(ms, n, name) {
+  if (ms < n) return;
+  if (ms < n * 1.5) return Math.floor(ms / n) + ' ' + name;
+  return Math.ceil(ms / n) + ' ' + name + 's';
+}
+
+},{}],54:[function(require,module,exports){
+// originally pulled out of simple-peer
+
+module.exports = function getBrowserRTC () {
+  if (typeof window === 'undefined') return null
+  var wrtc = {
+    RTCPeerConnection: window.mozRTCPeerConnection || window.RTCPeerConnection ||
+      window.webkitRTCPeerConnection,
+    RTCSessionDescription: window.mozRTCSessionDescription ||
+      window.RTCSessionDescription || window.webkitRTCSessionDescription,
+    RTCIceCandidate: window.mozRTCIceCandidate || window.RTCIceCandidate ||
+      window.webkitRTCIceCandidate
+  }
+  if (!wrtc.RTCPeerConnection) return null
+  return wrtc
+}
+
+},{}],55:[function(require,module,exports){
+var hat = module.exports = function (bits, base) {
+    if (!base) base = 16;
+    if (bits === undefined) bits = 128;
+    if (bits <= 0) return '0';
+    
+    var digits = Math.log(Math.pow(2, bits)) / Math.log(base);
+    for (var i = 2; digits === Infinity; i *= 2) {
+        digits = Math.log(Math.pow(2, bits / i)) / Math.log(base) * i;
+    }
+    
+    var rem = digits - Math.floor(digits);
+    
+    var res = '';
+    
+    for (var i = 0; i < Math.floor(digits); i++) {
+        var x = Math.floor(Math.random() * base).toString(base);
+        res = x + res;
+    }
+    
+    if (rem) {
+        var b = Math.pow(base, rem);
+        var x = Math.floor(Math.random() * b).toString(base);
+        res = x + res;
+    }
+    
+    var parsed = parseInt(res, base);
+    if (parsed !== Infinity && parsed >= Math.pow(2, bits)) {
+        return hat(bits, base)
+    }
+    else return res;
+};
+
+hat.rack = function (bits, base, expandBy) {
+    var fn = function (data) {
+        var iters = 0;
+        do {
+            if (iters ++ > 10) {
+                if (expandBy) bits += expandBy;
+                else throw new Error('too many ID collisions, use more bits')
+            }
+            
+            var id = hat(bits, base);
+        } while (Object.hasOwnProperty.call(hats, id));
+        
+        hats[id] = data;
+        return id;
+    };
+    var hats = fn.hats = {};
+    
+    fn.get = function (id) {
+        return fn.hats[id];
+    };
+    
+    fn.set = function (id, value) {
+        fn.hats[id] = value;
+        return fn;
+    };
+    
+    fn.bits = bits || 128;
+    fn.base = base || 16;
+    return fn;
+};
+
+},{}],56:[function(require,module,exports){
+module.exports=require(22)
+},{"/Users/max/src/js/browserify/node_modules/inherits/inherits_browser.js":22}],57:[function(require,module,exports){
+module.exports      = isTypedArray
+isTypedArray.strict = isStrictTypedArray
+isTypedArray.loose  = isLooseTypedArray
+
+var toString = Object.prototype.toString
+var names = {
+    '[object Int8Array]': true
+  , '[object Int16Array]': true
+  , '[object Int32Array]': true
+  , '[object Uint8Array]': true
+  , '[object Uint8ClampedArray]': true
+  , '[object Uint16Array]': true
+  , '[object Uint32Array]': true
+  , '[object Float32Array]': true
+  , '[object Float64Array]': true
+}
+
+function isTypedArray(arr) {
+  return (
+       isStrictTypedArray(arr)
+    || isLooseTypedArray(arr)
+  )
+}
+
+function isStrictTypedArray(arr) {
+  return (
+       arr instanceof Int8Array
+    || arr instanceof Int16Array
+    || arr instanceof Int32Array
+    || arr instanceof Uint8Array
+    || arr instanceof Uint8ClampedArray
+    || arr instanceof Uint16Array
+    || arr instanceof Uint32Array
+    || arr instanceof Float32Array
+    || arr instanceof Float64Array
+  )
+}
+
+function isLooseTypedArray(arr) {
+  return names[toString.call(arr)]
+}
+
+},{}],58:[function(require,module,exports){
+// Returns a wrapper function that returns a wrapped callback
+// The wrapper function should do some stuff, and return a
+// presumably different callback function.
+// This makes sure that own properties are retained, so that
+// decorations and such are not lost along the way.
+module.exports = wrappy
+function wrappy (fn, cb) {
+  if (fn && cb) return wrappy(fn)(cb)
+
+  if (typeof fn !== 'function')
+    throw new TypeError('need wrapper function')
+
+  Object.keys(fn).forEach(function (k) {
+    wrapper[k] = fn[k]
+  })
+
+  return wrapper
+
+  function wrapper() {
+    var args = new Array(arguments.length)
+    for (var i = 0; i < args.length; i++) {
+      args[i] = arguments[i]
+    }
+    var ret = fn.apply(this, args)
+    var cb = args[args.length-1]
+    if (typeof ret === 'function' && ret !== cb) {
+      Object.keys(cb).forEach(function (k) {
+        ret[k] = cb[k]
+      })
+    }
+    return ret
+  }
+}
+
+},{}],59:[function(require,module,exports){
+var wrappy = require('wrappy')
+module.exports = wrappy(once)
+
+once.proto = once(function () {
+  Object.defineProperty(Function.prototype, 'once', {
+    value: function () {
+      return once(this)
+    },
+    configurable: true
+  })
+})
+
+function once (fn) {
+  var f = function () {
+    if (f.called) return f.value
+    f.called = true
+    return f.value = fn.apply(this, arguments)
+  }
+  f.called = false
+  return f
+}
+
+},{"wrappy":58}],60:[function(require,module,exports){
+(function (Buffer){
+/**
+ * Convert a typed array to a Buffer without a copy
+ *
+ * Author:   Feross Aboukhadijeh <feross@feross.org> <http://feross.org>
+ * License:  MIT
+ *
+ * `npm install typedarray-to-buffer`
+ */
+
+var isTypedArray = require('is-typedarray').strict
+
+module.exports = function (arr) {
+  // If `Buffer` is the browser `buffer` module, and the browser supports typed arrays,
+  // then avoid a copy. Otherwise, create a `Buffer` with a copy.
+  var constructor = Buffer.TYPED_ARRAY_SUPPORT
+    ? Buffer._augment
+    : function (arr) { return new Buffer(arr) }
+
+  if (arr instanceof Uint8Array) {
+    return constructor(arr)
+  } else if (arr instanceof ArrayBuffer) {
+    return constructor(new Uint8Array(arr))
+  } else if (isTypedArray(arr)) {
+    // Use the typed array's underlying ArrayBuffer to back new Buffer. This respects
+    // the "view" on the ArrayBuffer, i.e. byteOffset and byteLength. No copy.
+    return constructor(new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength))
+  } else {
+    // Unsupported type, just pass it through to the `Buffer` constructor.
+    return new Buffer(arr)
+  }
+}
+
+}).call(this,require("buffer").Buffer)
+},{"buffer":17,"is-typedarray":57}],61:[function(require,module,exports){
+(function (process,Buffer){
+/* global screen, EventSource */
+var zlib = require('zlib')
+var events = require('events')
+
+var SimplePeer = require('simple-peer')
+var nets = require('nets')
+var getUserMedia = require('./get-user-media.js')()
+
+module.exports = function create (opts) {
+  var server = 'http://catlobby.maxogden.com'
+  // var server = 'http://localhost:5005'
+  var remoteConfigUrl = 'https://instant.io/rtcConfig'
+  if (process.browser) remoteConfigUrl = 'http://cors.maxogden.com/' + remoteConfigUrl
+
+  var video, videoSize
+
+  var constraints = {
+    audio: false,
+    video: {
+      mandatory: {
+        chromeMediaSource: 'screen',
+        maxWidth: screen.availWidth,
+        maxHeight: screen.availHeight,
+        maxFrameRate: 25
+      },
+      optional: []
+    }
+  }
+
+  var pc = new events.EventEmitter()
+  pc.getRemoteConfig = getRemoteConfig
+  pc.verifyRoom = verifyRoom
+  pc.remotePeer = remotePeer
+  pc.hostPeer = hostPeer
+  pc.handleSignal = handleSignal
+  pc.videoElement = videoElement
+  pc.audioElement = audioElement
+  pc.onConnect = onConnect
+  pc.createRoom = createRoom
+
+  return pc
+
+  function verifyRoom (room, cb) {
+    // ensure room is still open
+    nets({method: 'POST', uri: server + '/v1/' + room + '/pong', json: {ready: true}}, function response (err, resp, data) {
+      if (err) return cb(err)
+      if (resp.statusCode !== 200) return cb(new Error('Invalid or expired invite code'))
+      cb()
+    })
+  }
+
+  // get remote webrtc config (ice/stun/turn)
+  function getRemoteConfig (cb) {
+    nets({url: remoteConfigUrl, json: true}, function gotConfig (err, resp, config) {
+      if (err || resp.statusCode > 299) config = undefined // ignore errors
+      cb(null, config)
+    })
+  }
+
+  // try getusermedia and then upload sdp pong. this causes host to ping sdp back
+  function getAudio (cb) {
+    getUserMedia({audio: true, video: false}, function ok (stream) {
+      cb(null, stream)
+    },
+    function error (err) {
+      // screenshare even if remote doesnt wanna do audio
+      if (err.name === 'PermissionDeniedError' || err.name === 'DevicesNotFoundError') {
+        cb()
+      } else {
+        cb(err)
+      }
+    })
+  }
+
+  function remotePeer (config, room, cb) {
+    // listen for pings
+    var pingsUrl = server + '/v1/' + room + '/pings'
+    console.log('getting pings', pingsUrl)
+    var events = new EventSource(pingsUrl)
+    events.onmessage = function onMessage (e) {
+      console.log('pings onmessage', e.data)
+      var row
+      try {
+        row = JSON.parse(e.data)
+      } catch (e) {
+        row = {}
+        return cb(new Error('Error connecting. Please start over.'))
+      }
+
+      if (!row.data) {
+        return
+      }
+
+      inflate(row.data, function inflated (err, stringified) {
+        if (err) return cb(err)
+
+        pc.emit('getting-audio')
+        getAudio(function got (err, audioStream) {
+          if (err) return handleRTCErr(err, cb)
+          var peer = new SimplePeer({ trickle: false, config: config })
+          if (audioStream) peer._pc.addStream(audioStream)
+          peer.signal(JSON.parse(stringified.toString()))
+          cb(null, peer)
+        })
+      })
+
+      events.close()
+    }
+
+    events.onerror = function onError (e) {
+      cb(new Error('Error connecting. Please start over.'))
+      events.close()
+    }
+  }
+
+  function createRoom (cb) {
+    nets({method: 'POST', uri: server + '/v1'}, function response (err, resp, body) {
+      if (err) return cb(err)
+      var room = JSON.parse(body)
+      cb(null, room.name)
+    })
+  }
+
+  function hostPeer (room, config, cb) {
+    var peer
+
+    // listen for pongs
+    var events = new EventSource(server + '/v1/' + room + '/pongs')
+    events.onmessage = function onMessage (e) {
+      console.log('pongs onmessage', e.data)
+      var row
+      try {
+        row = JSON.parse(e.data)
+      } catch (e) {
+        return cb(new Error('Error connecting. Please start over.'))
+      }
+
+      // other side is ready
+      if (row.ready) {
+        connect(row.data)
+      }
+
+      // sdp from other side
+      if (row.data) {
+        inflate(row.data, function inflated (err, stringified) {
+          if (err) {
+            return cb(new Error('Error connecting. Please start over.'))
+          }
+
+          peer.signal(JSON.parse(stringified.toString()))
+        })
+        events.close()
+      }
+
+      function connect (pong) {
+        // screensharing
+        getUserMedia(constraints, function (videoStream) {
+          // audio
+          getUserMedia({audio: true, video: false}, function (audioStream) {
+            peer = new SimplePeer({ initiator: true, trickle: false, config: config })
+            peer._pc.addStream(videoStream)
+            peer._pc.addStream(audioStream)
+            pc.emit('waiting-for-peer')
+            cb(null, peer)
+          }, function (err) { handleRTCErr(err, cb) })
+        }, function (err) { handleRTCErr(err, cb) })
+      }
+    }
+
+    events.onerror = function onError (e) {
+      cb(e)
+      events.close()
+    }
+  }
+
+  function handleRTCErr (err, cb) {
+    if (err.name === 'PermissionDeniedError') {
+      console.error('permission denied')
+      console.error(err)
+      cb(new Error('Screensharing permission denied'))
+    } else {
+      console.error('Unknown error', err)
+      cb(err)
+    }
+  }
+
+  function handleSignal (sdp, peer, remote, room, cb) {
+    deflate(sdp, function deflated (err, data) {
+      if (err) return cb(err)
+
+      // upload sdp
+      var uploadURL = server + '/v1/' + room
+      if (remote) uploadURL += '/pong'
+      else uploadURL += '/ping'
+
+      console.log('POST', uploadURL)
+      nets({method: 'POST', json: {data: data}, uri: uploadURL}, function response (err, resp, body) {
+        if (err || resp.statusCode > 299) return cb(err)
+        cb(null)
+      })
+    })
+  }
+
+  function onConnect (peer, remote) {
+    pc.emit('connected', peer, remote)
+    var queue = []
+
+    if (remote) {
+      window.addEventListener('mousedown', mousedownListener)
+      window.addEventListener('keydown', keydownListener)
+    }
+
+    if (!remote) {
+      peer.on('data', function (data) {
+        queue.push(data)
+        if (queue.length === 1) startQueue()
+      })
+      return
+    }
+
+    peer.on('close', function cleanup () {
+      window.removeEventListener('mousedown', mousedownListener)
+      window.removeEventListener('keydown', keydownListener)
+    })
+
+    function mousedownListener (e) {
+      var data = getMouseData(e)
+      data.click = true
+      console.log('send mouse', data)
+      peer.send(data)
+    }
+
+    function keydownListener (e) {
+      e.preventDefault()
+
+      var data = {
+        keyCode: e.keyCode,
+        shift: e.shiftKey,
+        meta: e.metaKey,
+        control: e.ctrlKey,
+        alt: e.altKey
+      }
+
+      console.log('send key', data)
+      peer.send(data)
+    }
+
+    function getMouseData (e) {
+      var data = {}
+      data.clientX = e.clientX
+      data.clientY = e.clientY
+
+      if (video) {
+        videoSize = video.getBoundingClientRect()
+        data.canvasWidth = videoSize.width
+        data.canvasHeight = videoSize.height
+      }
+
+      return data
+    }
+
+    // magic queue that helps prevent weird key drop issues on the c++ side
+    function startQueue () {
+      if (queue.started) return
+      queue.started = true
+      queue.id = setInterval(function () {
+        var next = queue.shift()
+        if (!next) {
+          clearInterval(queue.id)
+          queue.started = false
+          return
+        }
+        if (pc.robot) {
+          pc.robot(next)
+        }
+      }, 0)
+    }
+  }
+
+  function videoElement (stream) {
+    var video = document.createElement('video')
+    video.src = window.URL.createObjectURL(stream)
+    video.autoplay = true
+    return video
+  }
+
+  function audioElement (stream) {
+    var audio = document.createElement('audio')
+    audio.src = window.URL.createObjectURL(stream)
+    audio.autoplay = true
+    return audio
+  }
+
+  function inflate (data, cb) {
+    data = decodeURIComponent(data.toString())
+    zlib.inflate(new Buffer(data, 'base64'), cb)
+  }
+
+  function deflate (data, cb) {
+    // sdp is ~2.5k usually, that's too big for a URL, so we zlib deflate it
+    var stringified = JSON.stringify(data)
+    zlib.deflate(stringified, function (err, deflated) {
+      if (err) {
+        cb(err)
+        return
+      }
+      var connectionString = deflated.toString('base64')
+      var code = encodeURIComponent(connectionString)
+      cb(null, code)
+    })
+  }
+}
+
+}).call(this,require('_process'),require("buffer").Buffer)
+},{"./get-user-media.js":41,"_process":24,"buffer":17,"events":21,"nets":42,"simple-peer":50,"zlib":16}],62:[function(require,module,exports){
+var createPeerConnection = require('./peer.js')
+var peerConnection = createPeerConnection()
+var ui = require('./ui.js')
+var connect = require('./connect.js')
+
+ui.inputs.paste.value = 'Loading...'
+connect.verifyUserRoom(peerConnection, ui, function (err, room, config) {
+  if (err) {
+    ui.inputs.paste.value = 'Error! ' + err.message
+    return
+  }
+  ui.inputs.paste.value = 'Waiting on other side...'
+  connect.remote(peerConnection, ui, config, room)
+})
+
+peerConnection.on('connected', function connected (peer) {
+  ui.inputs.paste.value = ''
+  ui.show(ui.containers.multimedia)
+  ui.hide(ui.containers.content)
+
+  peer.on('error', function error (err) {
+    console.error('peer error')
+    console.error(err)
+    ui.hide(ui.containers.multimedia)
+    ui.show(ui.containers.content)
+    ui.containers.join.innerHTML = 'Error connecting! Please Quit. ' + err.message
+  })
+
+  peer.on('close', function close () {
+    ui.hide(ui.containers.multimedia)
+    ui.show(ui.containers.content)
+    ui.containers.join.innerHTML = 'The remote user ended the sharing session.'
+    ui.containers.multimedia.innerHTML = ''
+  })
+})
+
+ui.buttons.back.addEventListener('click', function (e) {
+  showChoose()
+})
+
+peerConnection.on('getting-audio', function () {
+  ui.inputs.paste.value = 'Please allow or deny voice chat...'
+})
+
+peerConnection.on('waiting-for-peer', function () {
+  ui.inputs.paste.value = 'Waiting for other side...'
+})
+
+function showChoose () {
+  ui.show(ui.containers.choose)
+  ui.hide(ui.containers.share)
+  ui.hide(ui.containers.join)
+  ui.hide(ui.buttons.back)
+}
+
+},{"./connect.js":40,"./peer.js":61,"./ui.js":63}],63:[function(require,module,exports){
+var ui = {}
+
+module.exports = ui
+
+ui.show = show
+ui.hide = hide
+
+ui.containers = {
+  share: document.querySelector('.share-container'),
+  join: document.querySelector('.join-container'),
+  content: document.querySelector('.content-container'),
+  choose: document.querySelector('.choose-container'),
+  multimedia: document.querySelector('.multimedia-container'),
+  sharing: document.querySelector('.sharing-container'),
+  viewing: document.querySelector('.viewing-container')
+}
+
+ui.buttons = {
+  share: document.querySelector('.share-button'),
+  join: document.querySelector('.join-button'),
+  copy: document.querySelector('.code-copy-button'),
+  paste: document.querySelector('.code-paste-button'),
+  quit: document.querySelector('.quit-button'),
+  back: document.querySelector('.back-button'),
+  destroy: document.querySelector('.sharing-container .destroy-button'),
+  stopViewing: document.querySelector('.viewing-container .destroy-button'),
+  show: document.querySelector('.viewing-container .show-button')
+}
+
+ui.inputs = {
+  copy: document.querySelector('.code-copy-input'),
+  paste: document.querySelector('.code-paste-input')
+}
+
+function show (ele) {
+  if (!ele) return
+  ele.classList.remove('dn')
+}
+
+function hide (ele) {
+  if (!ele) return
+  ele.classList.add('dn')
+  ele.classList.remove('db')
+}
+
+},{}]},{},[62]);
