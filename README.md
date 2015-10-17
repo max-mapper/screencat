@@ -18,7 +18,7 @@ To download the latest version visit the [releases page](https://github.com/maxo
 
 ### How it works
 
-The app itself is written in JS, HTML and CSS. The CSS is from [tachyons](https://www.npmjs.com/package/tachyons). The app is wrapped up in an [atom-shell](https://github.com/atom/atom-shell) application using the [menubar](https://www.npmjs.com/package/menubar) module.
+The app itself is written in JS, HTML and CSS. The CSS is from [tachyons](https://www.npmjs.com/package/tachyons). The app is wrapped up in an [electron](https://github.com/atom/electron) application using the [menubar](https://www.npmjs.com/package/menubar) module.
 
 One really cool feature of ScreenCat is the ability to screenshare with a normal browser. Using our [remote control page](http://maxogden.github.io/screencat/remote) you can send your invite code to a web user and they can remote control your computer. Currently Google Chrome is recommended. You can also screenshare between 2 `ScreenCat.app` users.
 
@@ -39,9 +39,14 @@ The motivation for making ScreenCat came from a lack of open source + easily hac
 ##### Developing
 
 ```bash
-npm install # installs atom-shell and all the deps
-npm run app # runs the app in the atom-shell wrapper
+npm install # installs electron and all the deps
+npm start # runs the app in the electron wrapper
 npm run build # builds the mac app
 ```
 
-To get `robotjs` to compile correctly for use inside `atom-shell`, you have to either run `npm install` using the same version of `iojs` that is being used by the version of `atom-shell` you wish to use, or you can run e.g. `export ATOM_NODE_VERSION=0.22.1 && apm install .` inside the `screencat` directory (assuming you have `apm` installed).
+## source code guide
+
+- the electron app executable is `electron.js`
+- the electron app UI and main code are `app.html`, `app.js` and `screen.js`
+- the remote web viewer UI and core are `remote.js` and `remote.html`
+- `peer.js` and `connect.js` are used by both the electron app and the web viewer
