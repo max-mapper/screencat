@@ -11,7 +11,8 @@ ui.containers = {
   content: document.querySelector('.content-container'),
   choose: document.querySelector('.choose-container'),
   multimedia: document.querySelector('.multimedia-container'),
-  sharing: document.querySelector('.sharing-container')
+  sharing: document.querySelector('.sharing-container'),
+  viewing: document.querySelector('.viewing-container')
 }
 
 ui.buttons = {
@@ -21,7 +22,9 @@ ui.buttons = {
   paste: document.querySelector('.code-paste-button'),
   quit: document.querySelector('.quit-button'),
   back: document.querySelector('.back-button'),
-  destroy: document.querySelector('.destroy-button')
+  destroy: document.querySelector('.sharing-container .destroy-button'),
+  stopViewing: document.querySelector('.viewing-container .destroy-button'),
+  show: document.querySelector('.viewing-container .show-button')
 }
 
 ui.inputs = {

@@ -19,9 +19,12 @@ peerConnection.on('connected', function connected (peer) {
     console.error('peer error')
     console.error(err)
     ui.containers.content.innerHTML = 'Error connecting! Please Quit. ' + err.message
+    ipc.send('disconnected', true)
   })
 
   peer.on('close', function close () {
-    console.log('closed')
+    ipc.send('disconnected', true)
   })
+
+  ipc.send('connected', true)
 })

@@ -16,7 +16,6 @@ peerConnection.on('connected', function connected (newPeer, remote) {
     ui.show(ui.containers.sharing)
     ui.hide(ui.containers.content)
   } else {
-    ipc.send('resize', {width: 800, height: 500})
     ui.show(ui.containers.multimedia)
     ui.hide(ui.containers.content)
   }
@@ -30,6 +29,16 @@ peerConnection.on('connected', function connected (newPeer, remote) {
   peer.on('close', function close () {
     showChoose()
   })
+})
+
+ipc.on('connected', function () {
+  ui.hide(ui.containers.content)
+  ui.show(ui.containers.viewing)
+})
+
+ipc.on('disconnected', function () {
+  console.log('disconnected')
+  showChoose()
 })
 
 ui.buttons.quit.addEventListener('click', function (e) {
@@ -78,7 +87,18 @@ ui.buttons.copy.addEventListener('click', function (e) {
   clipboard.writeText(ui.inputs.copy.value)
 })
 
+ui.buttons.show.addEventListener('click', function (e) {
+  e.preventDefault()
+  ipc.send('show-window')
+})
+
+ui.buttons.stopViewing.addEventListener('click', function (e) {
+  e.preventDefault()
+  ipc.send('stop-viewing')
+})
+
 function showChoose () {
+  ui.hide(ui.containers.viewing)
   ui.hide(ui.containers.sharing)
   ui.hide(ui.containers.multimedia)
   ui.show(ui.containers.content)
