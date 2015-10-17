@@ -34,8 +34,7 @@ ipc.on('create-window', function (ev, config) {
   })
 
   ipc.once('window-ready', function () {
-    win.webContents.openDevTools()
-    
+    // win.webContents.openDevTools()
     win.webContents.send('peer-config', config)
   })
 
