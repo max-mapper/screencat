@@ -250,6 +250,7 @@ module.exports = function create (opts) {
       data.clientX = e.clientX
       data.clientY = e.clientY
 
+      var video = document.querySelector('video')
       if (video) {
         videoSize = video.getBoundingClientRect()
         data.canvasWidth = videoSize.width
