@@ -12,7 +12,7 @@ module.exports = function create (opts) {
   var remoteConfigUrl = 'https://instant.io/rtcConfig'
   if (process.browser) remoteConfigUrl = 'http://cors.maxogden.com/' + remoteConfigUrl
 
-  var video, videoSize
+  var videoSize
 
   var constraints = {
     audio: false,
@@ -203,7 +203,6 @@ module.exports = function create (opts) {
 
   function onConnect (peer, remote) {
     pc.emit('connected', peer, remote)
-    var queue = []
 
     if (remote) {
       window.addEventListener('mousedown', mousedownListener)
@@ -212,8 +211,9 @@ module.exports = function create (opts) {
 
     if (!remote) {
       peer.on('data', function (data) {
-        queue.push(data)
-        if (queue.length === 1) startQueue()
+        if (!pc.robot) return
+        console.log(data)
+        pc.robot(data)
       })
       return
     }
@@ -258,23 +258,6 @@ module.exports = function create (opts) {
       }
 
       return data
-    }
-
-    // magic queue that helps prevent weird key drop issues on the c++ side
-    function startQueue () {
-      if (queue.started) return
-      queue.started = true
-      queue.id = setInterval(function () {
-        var next = queue.shift()
-        if (!next) {
-          clearInterval(queue.id)
-          queue.started = false
-          return
-        }
-        if (pc.robot) {
-          pc.robot(next)
-        }
-      }, 0)
     }
   }
 

@@ -1,5 +1,6 @@
 /* global screen */
 var robot = require('robotjs')
+window.robot = robot
 var vkey = require('vkey')
 
 module.exports = function createEvents (data) {
@@ -8,12 +9,8 @@ module.exports = function createEvents (data) {
     var y = scale(data.clientY, 0, data.canvasHeight, 0, screen.height)
     var pos = robot.getMousePos() // hosts current x/y
     robot.moveMouse(x, y) // move to remotes pos
-    setTimeout(function () {
-      robot.mouseClick() // click on remote click spot
-      setTimeout(function () {
-        robot.moveMouse(pos.x, pos.y) // go back to hosts position
-      }, 20)
-    }, 20)
+    robot.mouseClick() // click on remote click spot
+    robot.moveMouse(pos.x, pos.y) // go back to hosts position
   }
 
   if (data.keyCode) {

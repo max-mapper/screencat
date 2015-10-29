@@ -10,6 +10,10 @@ var mb = menubar({
   icon: 'file://' + path.join(__dirname, 'img', 'Icon.png')
 })
 
+var win
+
+mb.app.commandLine.appendSwitch('disable-renderer-backgrounding')
+
 mb.on('ready', function ready () {
   console.log('ready')
 })
@@ -25,7 +29,7 @@ ipc.on('resize', function resize (ev, data) {
 ipc.on('create-window', function (ev, config) {
   console.log('create-window', [config])
   mb.app.dock.show()
-  var win = new BrowserWindow({width: 720, height: 445})
+  win = new BrowserWindow({width: 720, height: 445})
   win.loadUrl('file://' + path.join(__dirname, 'screen.html'))
 
   win.on('closed', function () {

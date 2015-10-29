@@ -8,6 +8,7 @@ var connect = require('./connect.js')
 
 var peer
 var peerConnection = createPeerConnection()
+window.pc = peerConnection
 
 peerConnection.on('connected', function connected (newPeer, remote) {
   peer = newPeer
