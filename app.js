@@ -32,6 +32,10 @@ peerConnection.on('connected', function connected (newPeer, remote) {
   })
 })
 
+ipc.on('open-url', function (lnk) {
+  console.log('open url', lnk)
+})
+
 ipc.on('connected', function () {
   ui.hide(ui.containers.content)
   ui.show(ui.containers.viewing)

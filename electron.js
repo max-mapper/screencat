@@ -18,6 +18,11 @@ mb.on('ready', function ready () {
   console.log('ready')
 })
 
+mb.app.on('open-url', function (e, lnk) {
+  e.preventDefault()
+  if (mb.window) mb.window.webContents.send('open-url', lnk)
+})
+
 ipc.on('terminate', function terminate (ev) {
   mb.app.terminate()
 })
