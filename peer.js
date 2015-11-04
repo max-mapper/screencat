@@ -203,9 +203,12 @@ module.exports = function create (opts) {
 
   function onConnect (peer, remote) {
     pc.emit('connected', peer, remote)
+    var video
 
     if (remote) {
+      window.addEventListener('mousemove', mousemoveListener)
       window.addEventListener('mousedown', mousedownListener)
+      window.addEventListener('mouseup', mouseupListener)
       window.addEventListener('keydown', keydownListener)
     }
 
@@ -223,10 +226,24 @@ module.exports = function create (opts) {
       window.removeEventListener('keydown', keydownListener)
     })
 
+    function mousemoveListener (e) {
+      var data = getMouseData(e)
+      data.mouseMove = true
+      console.log('send mousemove', data)
+      peer.send(data)
+    }
+    
     function mousedownListener (e) {
       var data = getMouseData(e)
+      data.mouseDown = true
+      console.log('send mousedown', data)
+      peer.send(data)
+    }
+    
+    function mouseupListener (e) {
+      var data = getMouseData(e)
       data.click = true
-      console.log('send mouse', data)
+      console.log('send mouseup', data)
       peer.send(data)
     }
 
@@ -250,7 +267,7 @@ module.exports = function create (opts) {
       data.clientX = e.clientX
       data.clientY = e.clientY
 
-      var video = document.querySelector('video')
+      if (!video) video = document.querySelector('video')
       if (video) {
         videoSize = video.getBoundingClientRect()
         data.canvasWidth = videoSize.width
