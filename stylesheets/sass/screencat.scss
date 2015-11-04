@@ -2,6 +2,39 @@ $button-color: #539be2;
 $button-active: #3085db;
 $button-border-color: #3f74a8;
 
+@font-face {
+  font-family: 'icomoon';
+  src:url('../../fonts/icomoon.eot?yai13c');
+  src:url('../../fonts/icomoon.eot?yai13c#iefix') format('embedded-opentype'),
+    url('../../fonts/icomoon.ttf?yai13c') format('truetype'),
+    url('../../fonts/icomoon.woff?yai13c') format('woff'),
+    url('../../fonts/icomoon.svg?yai13c#icomoon') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+[class^="icon-"], [class*=" icon-"] {
+  font-size: 1em;
+  font-family: 'icomoon';
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+
+  /* Better Font Rendering =========== */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-back:before {
+  content: "\e900";
+}
+.icon-quit:before {
+  content: "\e901";
+}
+
 body {
   background-color: #F7F7F7;
   color: #222;
@@ -85,12 +118,26 @@ input[type="password"] {
 }
 
 .back-button {
+  position: relative;
+
   &:before {
-    position: absolute;
-    left: 0;
+    font-family: "icomoon";
+    font-size: 10px;
+    content: "\e900";
     display: inline-block;
-    content: '◄';
-    padding-left: 5px;
+    padding-right: 5px;
+  }
+}
+
+.quit-button {
+  position: relative;
+
+  &:before {
+    font-family: "icomoon";
+    font-size: 10px;
+    content: "\e901";
+    display: inline-block;
+    padding-right: 5px;
   }
 }
 
