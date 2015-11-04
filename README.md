@@ -4,7 +4,9 @@
 
 ScreenCat is an open source screen sharing + remote collaboration application, currently only for Mac OS. You can share your desktop with someone else while letting them share your mouse and keyboard remotely. Right now it is not as good as commercial alternatives, mostly because this initial prototype was written in 3 days. The big difference is that you can send PRs to make ScreenCat better!
 
-ScreenCat is named after cats, but also for the idea of 'catting' a screen (as in unix cat). It has two C/C++ dependencies, [Atom Shell](https://github.com/atom/atom-shell) (which includes iojs) and [robotjs](https://github.com/octalmage/robotjs) for creating mouse + keyboard events.
+![demo](img/demo.png)
+
+ScreenCat is named after cats, but also for the idea of 'catting' a screen (as in unix cat). It has two C/C++ dependencies, [Electron](https://github.com/atom/electron) (which includes node.js) and [robotjs](https://github.com/octalmage/robotjs) for creating mouse + keyboard events.
 
 ScreenCat is currently **ALPHA STATUS** and is intended for developers/early adopters. Check out the Issues to get involved. ScreenCat is a volunteer run project, your contributions and improvements are welcome!
 

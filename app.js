@@ -8,6 +8,7 @@ var connect = require('./connect.js')
 
 var peer
 var peerConnection = createPeerConnection()
+window.pc = peerConnection
 
 peerConnection.on('connected', function connected (newPeer, remote) {
   peer = newPeer
@@ -29,6 +30,10 @@ peerConnection.on('connected', function connected (newPeer, remote) {
   peer.on('close', function close () {
     showChoose()
   })
+})
+
+ipc.on('open-url', function (lnk) {
+  console.log('open url', lnk)
 })
 
 ipc.on('connected', function () {

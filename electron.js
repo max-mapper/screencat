@@ -10,8 +10,17 @@ var mb = menubar({
   icon: 'file://' + path.join(__dirname, 'img', 'Icon.png')
 })
 
+var win
+
+mb.app.commandLine.appendSwitch('disable-renderer-backgrounding')
+
 mb.on('ready', function ready () {
   console.log('ready')
+})
+
+mb.app.on('open-url', function (e, lnk) {
+  e.preventDefault()
+  if (mb.window) mb.window.webContents.send('open-url', lnk)
 })
 
 ipc.on('terminate', function terminate (ev) {
@@ -25,7 +34,7 @@ ipc.on('resize', function resize (ev, data) {
 ipc.on('create-window', function (ev, config) {
   console.log('create-window', [config])
   mb.app.dock.show()
-  var win = new BrowserWindow({width: 720, height: 445})
+  win = new BrowserWindow({width: 720, height: 445})
   win.loadUrl('file://' + path.join(__dirname, 'screen.html'))
 
   win.on('closed', function () {
@@ -34,8 +43,7 @@ ipc.on('create-window', function (ev, config) {
   })
 
   ipc.once('window-ready', function () {
-    win.webContents.openDevTools()
-    
+    // win.webContents.openDevTools()
     win.webContents.send('peer-config', config)
   })
 
