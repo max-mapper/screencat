@@ -1,6 +1,6 @@
 {
   "name": "screencat",
-  "version": "4.0.2",
+  "version": "4.1.0",
   "description": "webrtc screensharing with shared mouse and keyboard",
   "main": "electron.js",
   "scripts": {
