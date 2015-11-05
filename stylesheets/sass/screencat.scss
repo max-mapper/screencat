@@ -28,11 +28,17 @@ $button-border-color: #3f74a8;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.icon-back:before {
-  content: "\e900";
+.icon-join:before {
+  content: "\e901";
 }
 .icon-quit:before {
-  content: "\e901";
+  content: "\e902";
+}
+.icon-share:before {
+  content: "\e903";
+}
+.icon-back:before {
+  content: "\e900";
 }
 
 body {
@@ -119,6 +125,15 @@ input[type="password"] {
 
 .back-button {
   position: relative;
+  color: #666;
+
+  &:hover {
+    color: #666;
+  }
+
+  &:active {
+    color: #ccc;
+  }
 
   &:before {
     font-family: "icomoon";
@@ -131,13 +146,54 @@ input[type="password"] {
 
 .quit-button {
   position: relative;
+  color: #666;
+
+  &:hover {
+    color: #666;
+  }
+
+  &:active {
+    color: #ccc;
+  }
 
   &:before {
     font-family: "icomoon";
     font-size: 10px;
-    content: "\e901";
+    content: "\e902";
     display: inline-block;
     padding-right: 5px;
+  }
+}
+
+.share-button {
+  position: relative;
+  padding-left: 35px;
+
+  &:before {
+    position: absolute;
+    top: 50%; 
+    transform: translateY(-50%);
+    left: 15px;
+    font-family: "icomoon";
+    font-size: 1.2em;
+    content: "\e903";
+    display: inline-block;
+  }
+}
+
+.join-button {
+  position: relative;
+  padding-left: 35px;
+
+  &:before {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 15px;
+    font-family: "icomoon";
+    font-size: 1.2em;
+    content: "\e901";
+    display: inline-block;
   }
 }
 

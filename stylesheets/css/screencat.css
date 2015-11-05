@@ -18,11 +18,17 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale; }
 
-.icon-back:before {
-  content: "\e900"; }
+.icon-join:before {
+  content: "\e901"; }
 
 .icon-quit:before {
-  content: "\e901"; }
+  content: "\e902"; }
+
+.icon-share:before {
+  content: "\e903"; }
+
+.icon-back:before {
+  content: "\e900"; }
 
 body {
   background-color: #F7F7F7;
@@ -95,7 +101,12 @@ input[type="password"] {
     color: #ccc; }
 
 .back-button {
-  position: relative; }
+  position: relative;
+  color: #666; }
+  .back-button:hover {
+    color: #666; }
+  .back-button:active {
+    color: #ccc; }
   .back-button:before {
     font-family: "icomoon";
     font-size: 10px;
@@ -104,13 +115,44 @@ input[type="password"] {
     padding-right: 5px; }
 
 .quit-button {
-  position: relative; }
+  position: relative;
+  color: #666; }
+  .quit-button:hover {
+    color: #666; }
+  .quit-button:active {
+    color: #ccc; }
   .quit-button:before {
     font-family: "icomoon";
     font-size: 10px;
-    content: "\e901";
+    content: "\e902";
     display: inline-block;
     padding-right: 5px; }
+
+.share-button {
+  position: relative;
+  padding-left: 35px; }
+  .share-button:before {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 15px;
+    font-family: "icomoon";
+    font-size: 1.2em;
+    content: "\e903";
+    display: inline-block; }
+
+.join-button {
+  position: relative;
+  padding-left: 35px; }
+  .join-button:before {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 15px;
+    font-family: "icomoon";
+    font-size: 1.2em;
+    content: "\e901";
+    display: inline-block; }
 
 .cr {
   overflow: auto; }
