@@ -1,6 +1,7 @@
 var ipc = require('ipc')
 var clipboard = require('clipboard')
 var shell = require('shell')
+var mdns = require('multicast-dns')()
 
 var createPeerConnection = require('./peer.js')
 var ui = require('./ui.js')
@@ -9,6 +10,24 @@ var connect = require('./connect.js')
 var peer
 var peerConnection = createPeerConnection()
 window.pc = peerConnection
+
+mdns.on('query', function (query) {
+  if (!ui.inputs.copy.value) return
+  query.questions.forEach(function (q) {
+    if (q.type === 'TXT' && q.name === 'screencat') {
+      mdns.respond([{type: 'TXT', name: 'screencat', data: ui.inputs.copy.value}])
+    }
+  })
+})
+
+mdns.on('response', function (res) {
+  res.answers.forEach(function (a) {
+    if (a.type === 'TXT' && a.name === 'screencat') {
+      ui.buttons.mdns.innerText = a.data
+      ui.show(ui.containers.mdns)
+    }
+  })
+})
 
 peerConnection.on('connected', function connected (newPeer, remote) {
   peer = newPeer
@@ -63,11 +82,22 @@ ui.buttons.share.addEventListener('click', function (e) {
   connect.host(peerConnection, ui)
 })
 
+ui.buttons.mdns.addEventListener('click', function (e) {
+  ui.inputs.paste.value = ui.buttons.mdns.innerText.trim()
+  ui.buttons.paste.click()
+})
+
 ui.buttons.join.addEventListener('click', function (e) {
+  ui.hide(ui.containers.mdns)
   ui.show(ui.containers.join)
   ui.hide(ui.containers.choose)
   ui.show(ui.buttons.back)
+
+  var interval = setInterval(query, 1000)
+  query()
+
   connect.verifyUserRoom(peerConnection, ui, function (err, room, config) {
+    clearInterval(interval)
     if (err) {
       ui.inputs.paste.value = 'Error! ' + err.message
       return
@@ -75,6 +105,10 @@ ui.buttons.join.addEventListener('click', function (e) {
     ui.inputs.paste.value = 'Waiting on other side...'
     ipc.send('create-window', {config: config, room: room})
   })
+
+  function query () {
+    mdns.query([{type: 'TXT', name: 'screencat'}])
+  }
 })
 
 ui.buttons.back.addEventListener('click', function (e) {
