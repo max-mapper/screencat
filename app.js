@@ -88,6 +88,7 @@ ui.buttons.mdns.addEventListener('click', function (e) {
 })
 
 ui.buttons.join.addEventListener('click', function (e) {
+  ui.inputs.copy.value = ''
   ui.hide(ui.containers.mdns)
   ui.show(ui.containers.join)
   ui.hide(ui.containers.choose)
