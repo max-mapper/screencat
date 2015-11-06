@@ -33,6 +33,7 @@ peerConnection.on('connected', function connected (newPeer, remote) {
   peer = newPeer
 
   if (!remote) {
+    ipc.send('icon', 'connected')
     ui.show(ui.containers.sharing)
     ui.hide(ui.containers.content)
   } else {
@@ -41,12 +42,14 @@ peerConnection.on('connected', function connected (newPeer, remote) {
   }
 
   peer.on('error', function error (err) {
+    ipc.send('icon', 'disconnected')
     console.error('peer error')
     console.error(err)
     ui.containers.content.innerHTML = 'Error connecting! Please Quit. ' + err.message
   })
 
   peer.on('close', function close () {
+    ipc.send('icon', 'disconnected')
     showChoose()
   })
 })

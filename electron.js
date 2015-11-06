@@ -3,11 +3,16 @@ var menubar = require('menubar')
 var BrowserWindow = require('browser-window')
 var ipc = require('ipc')
 
+var icons = {
+  connected: path.join(__dirname, 'img', 'IconRed.png'),
+  disconnected: path.join(__dirname, 'img', 'Icon.png')
+}
+
 var mb = menubar({
   width: 700,
   height: 300,
   index: 'file://' + path.join(__dirname, 'app.html'),
-  icon: 'file://' + path.join(__dirname, 'img', 'Icon.png')
+  icon: 'file://' + icons.disconnected
 })
 
 var win
@@ -16,6 +21,10 @@ mb.app.commandLine.appendSwitch('disable-renderer-backgrounding')
 
 mb.on('ready', function ready () {
   console.log('ready')
+})
+
+ipc.on('icon', function (ev, key) {
+  mb.tray.setImage(icons[key])
 })
 
 mb.app.on('open-url', function (e, lnk) {
