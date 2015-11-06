@@ -40,6 +40,10 @@ ipc.on('resize', function resize (ev, data) {
   mb.window.setSize(data.width, data.height)
 })
 
+ipc.on('error', function error (ev, err) {
+  console.error(new Error(err.message))
+})
+
 ipc.on('create-window', function (ev, config) {
   console.log('create-window', [config])
   mb.app.dock.show()
