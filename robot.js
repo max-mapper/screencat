@@ -4,16 +4,6 @@ window.robot = robot
 var vkey = require('vkey')
 
 module.exports = function createEvents (data) {
-  if (data.mouseDown) {
-    return robot.mouseToggle("down", "left")
-  }
-  
-  if (data.mouseMove) {
-    var x = scale(data.clientX, 0, data.canvasWidth, 0, screen.width)
-    var y = scale(data.clientY, 0, data.canvasHeight, 0, screen.height)
-    robot.moveMouse(x, y)
-  }
-  
   if (data.click) {
     var x = scale(data.clientX, 0, data.canvasWidth, 0, screen.width)
     var y = scale(data.clientY, 0, data.canvasHeight, 0, screen.height)

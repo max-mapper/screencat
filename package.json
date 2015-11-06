@@ -14,6 +14,7 @@
   "license": "BSD-3-Clause",
   "dependencies": {
     "menubar": "^2.0.4",
+    "multicast-dns": "^3.0.0",
     "nets": "^3.1.0",
     "simple-peer": "^5.11.5",
     "ssejson": "^1.2.0",

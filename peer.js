@@ -206,8 +206,6 @@ module.exports = function create (opts) {
     var video
 
     if (remote) {
-      window.addEventListener('mousemove', mousemoveListener)
-      window.addEventListener('mousedown', mousedownListener)
       window.addEventListener('mouseup', mouseupListener)
       window.addEventListener('keydown', keydownListener)
     }
@@ -222,24 +220,10 @@ module.exports = function create (opts) {
     }
 
     peer.on('close', function cleanup () {
-      window.removeEventListener('mousedown', mousedownListener)
+      window.removeEventListener('mouseup', mousedownListener)
       window.removeEventListener('keydown', keydownListener)
     })
 
-    function mousemoveListener (e) {
-      var data = getMouseData(e)
-      data.mouseMove = true
-      console.log('send mousemove', data)
-      peer.send(data)
-    }
-    
-    function mousedownListener (e) {
-      var data = getMouseData(e)
-      data.mouseDown = true
-      console.log('send mousedown', data)
-      peer.send(data)
-    }
-    
     function mouseupListener (e) {
       var data = getMouseData(e)
       data.click = true
