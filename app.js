@@ -81,7 +81,12 @@ ui.buttons.share.addEventListener('click', function (e) {
   ui.show(ui.containers.share)
   ui.hide(ui.containers.choose)
   ui.show(ui.buttons.back)
-  if (!peerConnection.robot) peerConnection.robot = require('./robot.js')
+  try {
+    if (!peerConnection.robot) peerConnection.robot = require('./robot.js')
+  } catch (e) {
+    error(new Error('./robot.js failed to load'))
+    error(e)
+  }
   connect.host(peerConnection, ui)
 })
 
@@ -158,4 +163,10 @@ for (var i = 0; i < externalLinks.length; i++) {
     shell.openExternal(e.target.href)
     return false
   }
+}
+
+function error (e) {
+  // TODO: Display this as a site flash in addition to the app console
+  ipc.send('error', {message: e.message, name: e.name})
+  console.error(e)
 }
