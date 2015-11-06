@@ -220,7 +220,7 @@ module.exports = function create (opts) {
     }
 
     peer.on('close', function cleanup () {
-      window.removeEventListener('mouseup', mousedownListener)
+      window.removeEventListener('mouseup', mouseupListener)
       window.removeEventListener('keydown', keydownListener)
     })
 
