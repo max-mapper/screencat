@@ -67,7 +67,7 @@ input[type="password"] {
 }
 
 .main-header {
-  background: -webkit-linear-gradient(top, #FFFFFF 0%, #F2F2F2 100%);
+  background: -webkit-linear-gradient(top, #FFFFFF 0%, #EDEDED 100%);
   border-bottom: 1px solid #D3D3D3;
   box-shadow: 0 1px 2px rgba(#EBEBEB, .8);
 }
@@ -123,45 +123,43 @@ input[type="password"] {
   }
 }
 
-.back-button {
+.back-button,
+.quit-button {
   position: relative;
-  color: #666;
+  color: #999;
+  padding: 6px 10px;
+  border: 1px solid #CFCFCF;
+  border-radius: 4px;
+  background: -webkit-linear-gradient(top, #FFFFFF 0%, #EDEDED 100%);
 
   &:hover {
-    color: #666;
+    color: #999;
+    border: 1px solid #CFCFCF;
+    border-radius: 4px;
   }
 
   &:active {
-    color: #ccc;
+    background: -webkit-linear-gradient(top, #EDEDED 0%, #FFFFFF 100%);
   }
+}
 
+.back-button {
   &:before {
     font-family: "icomoon";
     font-size: 10px;
     content: "\e900";
     display: inline-block;
-    padding-right: 5px;
+    padding: 0 3px 0 5px;
   }
 }
 
 .quit-button {
-  position: relative;
-  color: #666;
-
-  &:hover {
-    color: #666;
-  }
-
-  &:active {
-    color: #ccc;
-  }
-
   &:before {
     font-family: "icomoon";
     font-size: 10px;
     content: "\e902";
     display: inline-block;
-    padding-right: 5px;
+    padding: 0 3px 0 5px;
   }
 }
 
