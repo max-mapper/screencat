@@ -115,7 +115,7 @@ input[type="password"] {
     border-radius: 4px; }
   .back-button:active,
   .quit-button:active {
-    background: -webkit-linear-gradient(top, #EDEDED 0%, #FFFFFF 100%); }
+    background: -webkit-linear-gradient(top, #F0F0F0 0%, #FAFAFA 100%); }
 
 .back-button:before {
   font-family: "icomoon";
