@@ -70,6 +70,23 @@ input[type="password"] {
   background: -webkit-linear-gradient(top, #FFFFFF 0%, #EDEDED 100%);
   border-bottom: 1px solid #D3D3D3;
   box-shadow: 0 1px 2px rgba(#EBEBEB, .8);
+
+  > div {
+    display: flex;
+    justify-content: space-between;
+
+    div {
+      flex: 1;
+
+      &:nth-child(2) {
+        text-align: center;
+      }
+
+      &:last-child {
+        text-align: right;
+      }
+    }
+  }
 }
 
 .left {
@@ -153,16 +170,6 @@ input[type="password"] {
   }
 }
 
-.quit-button {
-  &:before {
-    font-family: "icomoon";
-    font-size: 10px;
-    content: "\e902";
-    display: inline-block;
-    padding-right: 5px;
-  }
-}
-
 .share-button {
   position: relative;
   padding-left: 35px;
@@ -210,3 +217,4 @@ input[type="password"] {
 a {
   color: black;
 }
+

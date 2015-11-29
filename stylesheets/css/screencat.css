@@ -60,6 +60,15 @@ input[type="password"] {
   background: -webkit-linear-gradient(top, #FFFFFF 0%, #EDEDED 100%);
   border-bottom: 1px solid #D3D3D3;
   box-shadow: 0 1px 2px rgba(235, 235, 235, 0.8); }
+  .main-header > div {
+    display: flex;
+    justify-content: space-between; }
+    .main-header > div div {
+      flex: 1; }
+      .main-header > div div:nth-child(2) {
+        text-align: center; }
+      .main-header > div div:last-child {
+        text-align: right; }
 
 .left {
   float: left;
@@ -123,13 +132,6 @@ input[type="password"] {
   content: "\e900";
   display: inline-block;
   padding: 0 3px 0 5px; }
-
-.quit-button:before {
-  font-family: "icomoon";
-  font-size: 10px;
-  content: "\e902";
-  display: inline-block;
-  padding-right: 5px; }
 
 .share-button {
   position: relative;
