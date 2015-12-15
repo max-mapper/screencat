@@ -1,3 +1,4 @@
+/* global screen */
 var ipc = require('ipc')
 var clipboard = require('clipboard')
 var shell = require('shell')
@@ -104,32 +105,34 @@ ui.buttons.share.addEventListener('click', function (e) {
       id++
     })
     var links = sourcesList.querySelectorAll('a')
+
     for (var i = 0; i < links.length; i++) {
       links[i].onclick = closure(i)
-      function closure (i) {
-        return function (e) {
-          e.preventDefault()
-          var source = sources[i]
-          var opts = {
-            constraints: {
-              audio: false,
-              video: {
-                mandatory: {
-                  chromeMediaSource: 'desktop',
-                  chromeMediaSourceId: source.id,
-                  maxWidth: screen.availWidth,
-                  maxHeight: screen.availHeight,
-                  maxFrameRate: 25
-                }
+    }
+
+    function closure (i) {
+      return function (e) {
+        e.preventDefault()
+        var source = sources[i]
+        var opts = {
+          constraints: {
+            audio: false,
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: source.id,
+                maxWidth: screen.availWidth,
+                maxHeight: screen.availHeight,
+                maxFrameRate: 25
               }
             }
           }
-          ui.show(ui.containers.share)
-          ui.hide(ui.containers.capturer)
-          sourcesList.innerHTML = ""
-          connect.host(peerConnection, ui, opts)
-          return false
         }
+        ui.show(ui.containers.share)
+        ui.hide(ui.containers.capturer)
+        sourcesList.innerHTML = ''
+        connect.host(peerConnection, ui, opts)
+        return false
       }
     }
   })

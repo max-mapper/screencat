@@ -1,7 +1,6 @@
 /* global screen, EventSource */
 var zlib = require('zlib')
 var events = require('events')
-var xtend = require('xtend')
 var SimplePeer = require('simple-peer')
 var nets = require('nets')
 var getUserMedia = require('./get-user-media.js')()
