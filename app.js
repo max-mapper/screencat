@@ -1,14 +1,17 @@
 var ipc = require('ipc')
 var clipboard = require('clipboard')
 var shell = require('shell')
-var mdns = require('multicast-dns')()
+var desktopCapturer = require('desktop-capturer')
 
+var domify = require('domify')
+var mdns = require('multicast-dns')()
 var createPeerConnection = require('./peer.js')
 var ui = require('./ui.js')
 var connect = require('./connect.js')
 
 var peer
 var peerConnection = createPeerConnection()
+window.ui = ui
 window.pc = peerConnection
 
 mdns.on('query', function (query) {
@@ -78,7 +81,6 @@ ui.buttons.destroy.addEventListener('click', function (e) {
 })
 
 ui.buttons.share.addEventListener('click', function (e) {
-  ui.show(ui.containers.share)
   ui.hide(ui.containers.choose)
   ui.show(ui.buttons.back)
   try {
@@ -87,7 +89,50 @@ ui.buttons.share.addEventListener('click', function (e) {
     error(new Error('./robot.js failed to load'))
     error(e)
   }
-  connect.host(peerConnection, ui)
+  desktopCapturer.getSources({types: ['window', 'screen']}, function (err, sources) {
+    if (err) return error(err)
+    ui.hide(ui.containers.choose)
+    ui.show(ui.containers.capturer)
+    var sourcesList = document.querySelector('.capturer-list')
+    var id = 0
+    sources.forEach(function (source) {
+      var thumb = source.thumbnail.toDataUrl()
+      if (!thumb) return
+      var title = source.name.slice(0, 20)
+      var item = `<li><a href="#"><img src="${thumb}"><span>${title}</span></a></li>`
+      sourcesList.appendChild(domify(item))
+      id++
+    })
+    var links = sourcesList.querySelectorAll('a')
+    for (var i = 0; i < links.length; i++) {
+      links[i].onclick = closure(i)
+      function closure (i) {
+        return function (e) {
+          e.preventDefault()
+          var source = sources[i]
+          var opts = {
+            constraints: {
+              audio: false,
+              video: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                  chromeMediaSourceId: source.id,
+                  maxWidth: screen.availWidth,
+                  maxHeight: screen.availHeight,
+                  maxFrameRate: 25
+                }
+              }
+            }
+          }
+          ui.show(ui.containers.share)
+          ui.hide(ui.containers.capturer)
+          sourcesList.innerHTML = ""
+          connect.host(peerConnection, ui, opts)
+          return false
+        }
+      }
+    }
+  })
 })
 
 ui.buttons.mdns.addEventListener('click', function (e) {

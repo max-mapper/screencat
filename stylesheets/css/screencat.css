@@ -163,6 +163,21 @@ input[type="password"] {
 .multimedia-container video {
   width: 100%; }
 
+.capturer-list li {
+  list-style-type: none;
+  margin-right: 30px;
+  float: left;
+  height: 150px; }
+
+.capturer-list img {
+  border: 1px solid #F7F7F7; }
+
+.capturer-list img:hover {
+  border: 1px solid black; }
+
+.capturer-list span {
+  display: block; }
+
 .content-container.w-50 {
   margin: auto; }
 
