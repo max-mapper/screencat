@@ -10,6 +10,7 @@ ui.containers = {
   join: document.querySelector('.join-container'),
   content: document.querySelector('.content-container'),
   choose: document.querySelector('.choose-container'),
+  capturer: document.querySelector('.capturer-container'),
   multimedia: document.querySelector('.multimedia-container'),
   sharing: document.querySelector('.sharing-container'),
   viewing: document.querySelector('.viewing-container'),

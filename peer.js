@@ -1,12 +1,11 @@
 /* global screen, EventSource */
 var zlib = require('zlib')
 var events = require('events')
-
 var SimplePeer = require('simple-peer')
 var nets = require('nets')
 var getUserMedia = require('./get-user-media.js')()
 
-module.exports = function create (opts) {
+module.exports = function create () {
   var server = 'http://catlobby.maxogden.com'
   // var server = 'http://localhost:5005'
   var remoteConfigUrl = 'https://instant.io/rtcConfig'
@@ -14,7 +13,7 @@ module.exports = function create (opts) {
 
   var videoSize
 
-  var constraints = {
+  var defaultConstraints = {
     audio: false,
     video: {
       mandatory: {
@@ -121,7 +120,10 @@ module.exports = function create (opts) {
     })
   }
 
-  function hostPeer (room, config, cb) {
+  function hostPeer (opts, cb) {
+    var room = opts.room
+    var config = opts.config
+    var constraints = opts.constraints || defaultConstraints
     var peer
 
     // listen for pongs

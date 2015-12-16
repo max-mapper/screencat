@@ -47,14 +47,17 @@ module.exports.remote = function (peerConnection, ui, config, room) {
   })
 }
 
-module.exports.host = function (peerConnection, ui) {
+module.exports.host = function (peerConnection, ui, opts) {
+  if (!opts) opts = {}
   getARoom(peerConnection, ui, function (err, room, config) {
     if (err) {
       ui.inputs.copy.value = 'Error! ' + err.message
       return
     }
     ui.inputs.copy.value = room
-    peerConnection.hostPeer(room, config, function (err, peer) {
+    opts.room = room
+    opts.config = config
+    peerConnection.hostPeer(opts, function (err, peer) {
       if (err) {
         ui.inputs.copy.value = 'Error! ' + err.message
         return
