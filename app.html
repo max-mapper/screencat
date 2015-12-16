@@ -24,11 +24,11 @@
       </div>
     </header>
     <main class="center mw8 phm phl-ns ptl pbxl">
-      <p class="mono gray lh-copy thin mw7 f3">
-        You are now sharing your screen.
+      <p class="mono gray lh-copy mw7 cb tc f4">
+        You are now viewing a remote screen.
       </p>
-      <div class="w-50 left">
-        <a class="destroy-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mrm">Stop Sharing</a>
+      <div class="interface-wrap">
+        <a class="w-100 db destroy-button btn-interface tc f4 mrm mbm">Stop Sharing</a>
       </div>
     </main>
   </div>
@@ -45,16 +45,21 @@
         </div>
       </div>
     </header>
-    <main class="center mw8 phm phl-ns ptl pbxl">
-      <p class="mono gray lh-copy mw7 thin f3">
+    <main class="center mw8 phm phl-ns pts pbxl">
+      <p class="mono gray lh-copy mw7 cb tc f4">
         You are now viewing a remote screen.
       </p>
-      <div class="w-50 left">
-        <a class="destroy-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mrm">Stop Viewing</a>
-      </div>
-      <div class="w-50 left">
-        <a class="show-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mlm">Show Window</a>
-      </div>
+      <div class="interface-wrap">
+        <div class="w-100 vol-ctrl mrm mbm">
+          <div class="dib vol-ctrl-wrap">
+            <svg width="12" height="20" viewBox="10 0 14 32" xmlns="http://www.w3.org/2000/svg"><title>Audio</title><path d="M7 8h6.632v16H7V8zm6.632 0L25 0v32l-11.368-8V8z" fill="#539be2" fill-rule="evenodd"/></svg>
+            <input type="range" min="0" max="100">
+            <svg width="21" height="20" viewBox="0 0 34 32" xmlns="http://www.w3.org/2000/svg"><title>Audio</title><g fill="none" fill-rule="evenodd"><path d="M0 8h6.632v16H0V8zm6.632 0L18 0v32L6.632 24V8z" fill="#539be2"/><path d="M21.085 9S25 11.015 25 16.137 21 23.1 21 23.1M25.12 6s5.554 2.86 5.554 10.124C30.674 23.39 25 26 25 26" stroke="#539be2" stroke-width="2"/></g></svg>
+           </div>
+        </div>
+        <a class="w-100 db destroy-button btn-interface tc f4 mrm mbm">Stop Viewing</a>
+        <a class="w-100 db show-button btn-interface tc f4 mrm mbm">Show Window</a>
+       </div>
     </main>
   </div>
 
@@ -72,15 +77,15 @@
         </div>
        </div>
     </header>
-    <main class="center mw8 phm phl-ns ptl">
+    <main class="center mw8 phm phl-ns ptm">
       <div class="choose-container">
         <div class="cr">
           <p class="mbl">If you share your screen the remote person will have full access to your desktop, mouse and keyboard.</p>
-          <div class="w-50 left">
-            <a class="share-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mrm">Share Your Screen</a>
+          <div class="w-100">
+            <a class="share-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mbm">Share Your Screen</a>
           </div>
-          <div class="w-50 left">
-            <a class="join-button tc phs pvs pvm-ns f4 btn w-100 mw-fill mlm">Join Remote Screen</a>
+          <div class="w-100">
+            <a class="join-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">Join Remote Screen</a>
           </div>
         </div>
       </div>
@@ -88,10 +93,10 @@
       <div class="share-container dn">
         <h2 class="f4 ttu book">Share</h2>
         <div class="cr">
-          <div class="w-80 left prl">
+          <div class="w-100 left mbm">
             <input type="text" class="code-copy-input pam brs ba b--light-gray w-100 mw-fill" autofocus></input>
           </div>
-          <div class="w-20 left">
+          <div class="w-100 left">
             <div class="code-copy-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">Copy</div>
           </div>
         </div>
@@ -101,10 +106,10 @@
       <div class="join-container dn">
         <h2 class="f4 ttu book cl">join</h2>
         <div class="cr">
-          <div class="w-80 left prl">
+          <div class="w-100 left mbm">
             <input type="text" class="code-paste-input pam brs ba b--light-gray w-100 mw-fill" value="Loading..." autofocus></input>
           </div>
-          <div class="w-20 left">
+          <div class="w-100">
             <div class="code-paste-button tc phs pvs pvm-ns f4 btn w-100 mw-fill">Connect</div>
           </div>
         </div>

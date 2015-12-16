@@ -4,18 +4,18 @@ $button-border-color: #3f74a8;
 
 @font-face {
   font-family: 'icomoon';
-  src:url('../../fonts/icomoon.eot?yai13c');
-  src:url('../../fonts/icomoon.eot?yai13c#iefix') format('embedded-opentype'),
-    url('../../fonts/icomoon.ttf?yai13c') format('truetype'),
-    url('../../fonts/icomoon.woff?yai13c') format('woff'),
-    url('../../fonts/icomoon.svg?yai13c#icomoon') format('svg');
+  src:url('../../fonts/icomoon.eot?1gdf2n');
+  src:url('../../fonts/icomoon.eot?1gdf2n#iefix') format('embedded-opentype'),
+    url('../../fonts/icomoon.ttf?1gdf2n') format('truetype'),
+    url('../../fonts/icomoon.woff?1gdf2n') format('woff'),
+    url('../../fonts/icomoon.svg?1gdf2n#icomoon') format('svg');
   font-weight: normal;
   font-style: normal;
 }
 
 [class^="icon-"], [class*=" icon-"] {
-  font-size: 1em;
-  font-family: 'icomoon';
+    /* use !important to prevent issues with browser extensions that change fonts */
+  font-family: 'icomoon' !important;
   speak: none;
   font-style: normal;
   font-weight: normal;
@@ -28,11 +28,14 @@ $button-border-color: #3f74a8;
   -moz-osx-font-smoothing: grayscale;
 }
 
+.icon-view-window:before {
+  content: "\e902";
+}
+.icon-stop:before {
+  content: "\e904";
+}
 .icon-join:before {
   content: "\e901";
-}
-.icon-quit:before {
-  content: "\e902";
 }
 .icon-share:before {
   content: "\e903";
@@ -48,7 +51,6 @@ body {
 
 input {
   outline: none;
-  padding: 15px 25px;
 }
 
 input[type="text"],
@@ -60,10 +62,39 @@ input[type="number"],
 input[type="password"] {
   border: 1px solid #DEDEDE;
   border-radius: 4px;
+  padding: 15px 25px;
 
   &:focus {
     border: 1px solid $button-color;
   }
+}
+
+input[type='range'] {
+  -webkit-appearance: none;
+  cursor: pointer;
+  background: #fafafa;
+  outline: none;
+  border: none;
+  border-radius: 25px;
+  -webkit-box-shadow: inset 0 1px 2px 0 #dfdfdf, inset 0 -1px 1px 0 #ededed;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #3f74a8;
+  border-radius: 12px;
+  background: #539be2;
+  -webkit-box-shadow: 0 1px 2px #d3d3d3;
+}
+
+a {
+  color: black;
+}
+
+p {
+  word-break: break-all;
 }
 
 .main-header {
@@ -104,7 +135,6 @@ input[type="password"] {
   color: #fff;
   padding: 15px 25px;
   text-shadow: 1px 1px 2px $button-border-color;
-  cursor: pointer;
   cursor: hand;
   transition: 200ms ease-in;
 
@@ -186,6 +216,40 @@ input[type="password"] {
   }
 }
 
+.destroy-button {
+  position: relative;
+  padding: 15px;
+
+  &:before {
+    position: absolute;
+    top: 50%; 
+    transform: translateY(-50%);
+    left: 15px;
+    color: #d64747;
+    font-family: "icomoon";
+    font-size: 1.2em;
+    content: "\e904";
+    display: inline-block;
+  }
+}
+
+.show-button {
+  position: relative;
+  padding: 15px;
+
+  &:before {
+    position: absolute;
+    top: 50%; 
+    color: $button-color;
+    transform: translateY(-50%);
+    left: 15px;
+    font-family: "icomoon";
+    font-size: 1em;
+    content: "\e902";
+    display: inline-block;
+  }
+}
+
 .join-button {
   position: relative;
   padding-left: 35px;
@@ -214,7 +278,33 @@ input[type="password"] {
   margin: auto;
 }
 
-a {
-  color: black;
+.interface-wrap {  
+  &:after {
+    display: block;
+    content: '';
+    clear: both;
+  }
 }
 
+.vol-ctrl {
+  position: relative;
+  text-align: center;
+}
+
+.vol-ctrl-wrap {
+  padding: 20px 15px 15px;
+}
+
+.btn-interface {
+  cursor: pointer;
+  box-sizing: border-box;
+  border: 1px solid #DEDEDE;
+  border-radius: 4px;
+  color: gray;
+  box-shadow: 0px 1px 3px rgba(#DEDEDE, .5);
+
+  &:active {
+    transform: translateY(1px);
+    box-shadow: none;
+  }
+}
