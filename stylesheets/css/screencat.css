@@ -97,10 +97,6 @@ p {
       .main-header > div div:last-child {
         text-align: right; }
 
-.left {
-  float: left;
-  display: block; }
-
 .btn {
   font-weight: 600;
   z-index: 9999;
