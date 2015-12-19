@@ -3,45 +3,45 @@ $button-active: #3085db;
 $button-border-color: #3f74a8;
 
 @font-face {
-  font-family: 'icomoon';
-  src:url('../../fonts/icomoon.eot?1gdf2n');
-  src:url('../../fonts/icomoon.eot?1gdf2n#iefix') format('embedded-opentype'),
-    url('../../fonts/icomoon.ttf?1gdf2n') format('truetype'),
-    url('../../fonts/icomoon.woff?1gdf2n') format('woff'),
-    url('../../fonts/icomoon.svg?1gdf2n#icomoon') format('svg');
-  font-weight: normal;
-  font-style: normal;
+    font-family: 'icomoon';
+    src:    url('../../fonts/icomoon.eot?3lr3de');
+    src:    url('../../fonts/icomoon.eot?3lr3de#iefix') format('embedded-opentype'),
+        url('../../fonts/icomoon.ttf?3lr3de') format('truetype'),
+        url('../../fonts/icomoon.woff?3lr3de') format('woff'),
+        url('../../fonts/icomoon.svg?3lr3de#icomoon') format('svg');
+    font-weight: normal;
+    font-style: normal;
 }
 
 [class^="icon-"], [class*=" icon-"] {
     /* use !important to prevent issues with browser extensions that change fonts */
-  font-family: 'icomoon' !important;
-  speak: none;
-  font-style: normal;
-  font-weight: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
+    font-family: 'icomoon' !important;
+    speak: none;
+    font-style: normal;
+    font-weight: normal;
+    font-variant: normal;
+    text-transform: none;
+    line-height: 1;
 
-  /* Better Font Rendering =========== */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    /* Better Font Rendering =========== */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-.icon-view-window:before {
-  content: "\e902";
+.icon-share-window:before {
+    content: "\e902";
+}
+.icon-window:before {
+    content: "\e903";
 }
 .icon-stop:before {
-  content: "\e904";
+    content: "\e904";
 }
 .icon-join:before {
-  content: "\e901";
-}
-.icon-share:before {
-  content: "\e903";
+    content: "\e901";
 }
 .icon-back:before {
-  content: "\e900";
+    content: "\e900";
 }
 
 body {
@@ -130,7 +130,7 @@ p {
   color: #fff;
   padding: 15px 25px;
   text-shadow: 1px 1px 2px $button-border-color;
-  cursor: hand;
+  cursor: pointer;
   transition: 200ms ease-in;
 
   &:hover,
@@ -150,6 +150,7 @@ p {
   border: none;
   color: #222;
   text-shadow: none;
+  cursor: pointer;
   background-color: transparent;
   position: relative;
   padding: 8px 8px 8px 25px;
@@ -205,8 +206,8 @@ p {
     transform: translateY(-50%);
     left: 15px;
     font-family: "icomoon";
-    font-size: 1.2em;
-    content: "\e903";
+    font-size: 1.1em;
+    content: "\e902";
     display: inline-block;
   }
 }
@@ -240,7 +241,7 @@ p {
     left: 15px;
     font-family: "icomoon";
     font-size: 1em;
-    content: "\e902";
+    content: "\e903";
     display: inline-block;
   }
 }
