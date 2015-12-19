@@ -123,12 +123,12 @@ p {
 .btn {
   font-weight: 600;
   z-index: 9999;
-  border-radius: 25px;
+  border-radius: 50px;
   font-size: .8em;
   border-color: $button-border-color;
   background-color: $button-color;
   color: #fff;
-  padding: 15px 25px;
+  padding: 20px 25px;
   text-shadow: 1px 1px 2px $button-border-color;
   cursor: pointer;
   transition: 200ms ease-in;

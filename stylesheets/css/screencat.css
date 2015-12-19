@@ -100,12 +100,12 @@ p {
 .btn {
   font-weight: 600;
   z-index: 9999;
-  border-radius: 25px;
+  border-radius: 50px;
   font-size: .8em;
   border-color: #3f74a8;
   background-color: #539be2;
   color: #fff;
-  padding: 15px 25px;
+  padding: 20px 25px;
   text-shadow: 1px 1px 2px #3f74a8;
   cursor: pointer;
   transition: 200ms ease-in; }
