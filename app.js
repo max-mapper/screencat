@@ -82,6 +82,8 @@ ui.buttons.destroy.addEventListener('click', function (e) {
 })
 
 ui.buttons.share.addEventListener('click', function (e) {
+  var sourcesList = document.querySelector('.capturer-list')
+  sourcesList.innerHTML = ''
   ui.hide(ui.containers.choose)
   ui.show(ui.buttons.back)
   try {
@@ -94,7 +96,6 @@ ui.buttons.share.addEventListener('click', function (e) {
     if (err) return error(err)
     ui.hide(ui.containers.choose)
     ui.show(ui.containers.capturer)
-    var sourcesList = document.querySelector('.capturer-list')
     var id = 0
     sources.forEach(function (source) {
       var thumb = source.thumbnail.toDataUrl()
@@ -202,6 +203,7 @@ function showChoose () {
   ui.hide(ui.containers.share)
   ui.hide(ui.containers.join)
   ui.hide(ui.buttons.back)
+  ui.hide(ui.containers.capturer)
 }
 
 var externalLinks = document.querySelectorAll('.open-externally')
