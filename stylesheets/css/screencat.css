@@ -132,11 +132,25 @@ p {
   .btn-plain:active {
     color: #ccc; }
 
+.btn-interface {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: pointer;
+  box-sizing: border-box;
+  border: 1px solid #DEDEDE;
+  border-radius: 4px;
+  color: gray;
+  box-shadow: 0px 1px 3px rgba(222, 222, 222, 0.5); }
+  .btn-interface:active {
+    transform: translateY(1px);
+    box-shadow: none; }
+
 .back-button,
 .quit-button {
   position: relative;
   color: #999;
   padding: 8px 10px;
+  font-size: .7em;
   border: 1px solid #CFCFCF;
   border-radius: 4px;
   background: -webkit-linear-gradient(top, #FFFFFF 0%, #EDEDED 100%); }
@@ -154,7 +168,7 @@ p {
   font-size: 10px;
   content: "\e900";
   display: inline-block;
-  padding: 0 3px 0 5px; }
+  padding: 0 3px 0 0px; }
 
 .share-button {
   position: relative;
@@ -245,14 +259,3 @@ p {
 
 .vol-ctrl-wrap {
   padding: 20px 15px 15px; }
-
-.btn-interface {
-  cursor: pointer;
-  box-sizing: border-box;
-  border: 1px solid #DEDEDE;
-  border-radius: 4px;
-  color: gray;
-  box-shadow: 0px 1px 3px rgba(222, 222, 222, 0.5); }
-  .btn-interface:active {
-    transform: translateY(1px);
-    box-shadow: none; }
