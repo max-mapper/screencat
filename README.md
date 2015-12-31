@@ -38,12 +38,27 @@ Currently the app only works between Macs, mostly because of the pain that is tr
 
 The motivation for making ScreenCat came from a lack of open source + easily hackable screen sharing tools. I collaborate with many remote open source developers and being able to customize the software we use to work together is important to me. ScreenCat will remain free and BSD licensed, and your contributions are welcome! Check out the [issues](https://github.com/maxogden/screencat/issues), especially those marked as `help wanted`.
 
-##### Developing
+##### Building the app
+
+For mac/linux:
 
 ```bash
 npm install # installs electron and all the deps
 npm start # runs the app in the electron wrapper
 npm run build # builds the mac app
+```
+
+For windows:
+
+You will [need Visual studio C++](https://github.com/nodejs/node-gyp) installed so you can build the native modules. Here are instructions for cmd.exe:
+
+```
+git clone https://github.com/maxogden/screencat.git
+cd screencat
+npm install
+npm install electron-rebuild
+.\node_modules\.bin\electron-rebuild.cmd
+npm start
 ```
 
 ## source code guide
