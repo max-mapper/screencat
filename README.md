@@ -2,7 +2,7 @@
 
 ![Icon@2x.png](img/Icon@2x.png)
 
-ScreenCat is an open source screen sharing + remote collaboration application, currently only for Mac OS. You can share your desktop with someone else while letting them share your mouse and keyboard remotely. Right now it is not as good as commercial alternatives, mostly because this initial prototype was written in 3 days. The big difference is that you can send PRs to make ScreenCat better!
+ScreenCat is an open source screen sharing + remote collaboration application. You can share your desktop with someone else while letting them share your mouse and keyboard remotely. Right now it is not as good as commercial alternatives, mostly because this is a hobby project and not a for-profit project. The big difference is that you can send PRs to make ScreenCat better!
 
 ![demo](img/demo.png)
 
@@ -10,7 +10,7 @@ ScreenCat is named after cats, but also for the idea of 'catting' a screen (as i
 
 ScreenCat is currently **ALPHA STATUS** and is intended for developers/early adopters. Check out the Issues to get involved. ScreenCat is a volunteer run project, your contributions and improvements are welcome!
 
-To download the latest version visit the [releases page](https://github.com/maxogden/screencat/releases)
+To download the latest build visit the [releases page](https://github.com/maxogden/screencat/releases). Builds for your OS may not be available and you may have to build it yourself, sorry.
 
 [![js-standard-style](https://raw.githubusercontent.com/feross/standard/master/badge.png)](https://github.com/feross/standard)
 
@@ -34,7 +34,7 @@ To simplify the connection process the app uses [cat-lobby](https://github.com/m
 
 To hook up the mouse and keyboard, the remote end uses standard `mousedown` and `keydown` events and sends them over a WebRTC data channel to the host. On the host side the app must synthesize mouse and keyboard events on the host OS. This is the tricky part, and the only part where a custom native node addon (C++) is required. Luckily I found the [robotjs](https://github.com/octalmage/robotjs) project which while still being relatively new and rough around the edges still got the job done after [some modifications](https://github.com/maxogden/robotjs/tree/keyupdown).
 
-Currently the app only works between Macs, mostly because of the pain that is translating between keycodes and keyboard layouts across operating systems. In the future we hope to support Mac, Windows and Linux 100%.
+Currently the app works best between Macs, mostly because that is what the original author used. However, you can build it for Linux or Windows too.
 
 The motivation for making ScreenCat came from a lack of open source + easily hackable screen sharing tools. I collaborate with many remote open source developers and being able to customize the software we use to work together is important to me. ScreenCat will remain free and BSD licensed, and your contributions are welcome! Check out the [issues](https://github.com/maxogden/screencat/issues), especially those marked as `help wanted`.
 
