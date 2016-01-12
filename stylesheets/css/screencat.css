@@ -1,7 +1,7 @@
 @font-face {
   font-family: 'icomoon';
-  src: url("../../fonts/icomoon.eot?3lr3de");
-  src: url("../../fonts/icomoon.eot?3lr3de#iefix") format("embedded-opentype"), url("../../fonts/icomoon.ttf?3lr3de") format("truetype"), url("../../fonts/icomoon.woff?3lr3de") format("woff"), url("../../fonts/icomoon.svg?3lr3de#icomoon") format("svg");
+  src: url("../../fonts/icomoon.eot?ks2mpk");
+  src: url("../../fonts/icomoon.eot?ks2mpk#iefix") format("embedded-opentype"), url("../../fonts/icomoon.ttf?ks2mpk") format("truetype"), url("../../fonts/icomoon.woff?ks2mpk") format("woff"), url("../../fonts/icomoon.svg?ks2mpk#icomoon") format("svg");
   font-weight: normal;
   font-style: normal; }
 
@@ -24,18 +24,19 @@
 .icon-window:before {
   content: "\e903"; }
 
+.icon-back-arrow:before {
+  content: "\e900"; }
+
 .icon-stop:before {
   content: "\e904"; }
 
 .icon-join:before {
   content: "\e901"; }
 
-.icon-back:before {
-  content: "\e900"; }
-
 body {
   background-color: #F7F7F7;
-  color: #222; }
+  color: #222;
+  word-break: break-all; }
 
 input {
   outline: none; }
@@ -154,7 +155,7 @@ a {
 .back-button,
 .quit-button {
   position: relative;
-  color: #A1A1A1;
+  color: #B9B9B9;
   padding: 8px 5px;
   font-size: .7em;
   border: 1px solid #dddddd;
@@ -243,17 +244,15 @@ a {
 .capturer-list li {
   list-style-type: none;
   margin: 0 auto 20px auto;
-  flex: 0 1 250px;
+  flex: 0 1 200px;
   cursor: pointer;
   position: relative; }
-  .capturer-list li:hover::after {
-    content: '';
-    position: absolute;
-    width: 100%;
-    bottom: 28px;
-    top: 0;
-    right: 0;
-    background-color: rgba(83, 155, 226, 0.5); }
+  .capturer-list li img {
+    border: 3px solid transparent;
+    transition: 300ms ease-in-out; }
+  .capturer-list li img:hover {
+    border: 3px solid #539be2;
+    border-radius: 3px; }
 
 .capturer-list img {
   width: 100%; }
