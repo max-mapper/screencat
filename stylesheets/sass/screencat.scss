@@ -1,54 +1,57 @@
-$button-color: #539be2;
-$button-active: #3085db;
+$main-color: #539be2;
+$main-color-active: #3085db;
 $button-border-color: #3f74a8;
 
 @font-face {
-  font-family: 'icomoon';
-  src:url('../../fonts/icomoon.eot?yai13c');
-  src:url('../../fonts/icomoon.eot?yai13c#iefix') format('embedded-opentype'),
-    url('../../fonts/icomoon.ttf?yai13c') format('truetype'),
-    url('../../fonts/icomoon.woff?yai13c') format('woff'),
-    url('../../fonts/icomoon.svg?yai13c#icomoon') format('svg');
-  font-weight: normal;
-  font-style: normal;
+    font-family: 'icomoon';
+    src:    url('../../fonts/icomoon.eot?ks2mpk');
+    src:    url('../../fonts/icomoon.eot?ks2mpk#iefix') format('embedded-opentype'),
+        url('../../fonts/icomoon.ttf?ks2mpk') format('truetype'),
+        url('../../fonts/icomoon.woff?ks2mpk') format('woff'),
+        url('../../fonts/icomoon.svg?ks2mpk#icomoon') format('svg');
+    font-weight: normal;
+    font-style: normal;
 }
 
 [class^="icon-"], [class*=" icon-"] {
-  font-size: 1em;
-  font-family: 'icomoon';
-  speak: none;
-  font-style: normal;
-  font-weight: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
+    /* use !important to prevent issues with browser extensions that change fonts */
+    font-family: 'icomoon' !important;
+    speak: none;
+    font-style: normal;
+    font-weight: normal;
+    font-variant: normal;
+    text-transform: none;
+    line-height: 1;
 
-  /* Better Font Rendering =========== */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    /* Better Font Rendering =========== */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
+.icon-share-window:before {
+    content: "\e902";
+}
+.icon-window:before {
+    content: "\e903";
+}
+.icon-back-arrow:before {
+    content: "\e900";
+}
+.icon-stop:before {
+    content: "\e904";
+}
 .icon-join:before {
-  content: "\e901";
-}
-.icon-quit:before {
-  content: "\e902";
-}
-.icon-share:before {
-  content: "\e903";
-}
-.icon-back:before {
-  content: "\e900";
+    content: "\e901";
 }
 
 body {
   background-color: #F7F7F7;
   color: #222;
+  word-break: break-all;
 }
 
 input {
   outline: none;
-  padding: 15px 25px;
 }
 
 input[type="text"],
@@ -60,35 +63,79 @@ input[type="number"],
 input[type="password"] {
   border: 1px solid #DEDEDE;
   border-radius: 4px;
+  padding: 15px 25px;
 
   &:focus {
-    border: 1px solid $button-color;
+    border: 1px solid $main-color;
   }
+}
+
+input[type='range'] {
+  -webkit-appearance: none;
+  cursor: pointer;
+  background: #fafafa;
+  outline: none;
+  border: none;
+  border-radius: 25px;
+  -webkit-box-shadow: inset 0 1px 2px 0 #dfdfdf, inset 0 -1px 1px 0 #ededed;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #3f74a8;
+  border-radius: 12px;
+  background: #539be2;
+  -webkit-box-shadow: 0 1px 2px #d3d3d3;
+}
+
+a {
+  color: black;
 }
 
 .main-header {
   background: -webkit-linear-gradient(top, #FFFFFF 0%, #EDEDED 100%);
   border-bottom: 1px solid #D3D3D3;
   box-shadow: 0 1px 2px rgba(#EBEBEB, .8);
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 2;
+
+  > div {
+    display: flex;
+    justify-content: space-between;
+
+    div {
+      flex: 1;
+
+      &:nth-child(2) {
+        text-align: center;
+      }
+
+      &:last-child {
+        text-align: right;
+      }
+    }
+  }
 }
 
-.left {
-  float: left;
-  display: block;
+.main-content {
+  padding-top: 70px;
 }
 
 .btn {
   font-weight: 600;
   z-index: 9999;
-  border-radius: 25px;
-  font-size: .8em;
+  border-radius: 50px;
+  font-size: .9em;
   border-color: $button-border-color;
-  background-color: $button-color;
+  background-color: $main-color;
   color: #fff;
-  padding: 15px 25px;
+  padding: 20px 25px;
   text-shadow: 1px 1px 2px $button-border-color;
   cursor: pointer;
-  cursor: hand;
   transition: 200ms ease-in;
 
   &:hover,
@@ -96,11 +143,11 @@ input[type="password"] {
     box-shadow: none;
   	border-color: $button-border-color;
   	color: #fff;
-  	background-color: $button-color;
+  	background-color: $main-color;
   }
 
   &:active {
-    background-color: $button-active;
+    background-color: $main-color-active;
   }
 }
 
@@ -108,6 +155,7 @@ input[type="password"] {
   border: none;
   color: #222;
   text-shadow: none;
+  cursor: pointer;
   background-color: transparent;
   position: relative;
   padding: 8px 8px 8px 25px;
@@ -123,23 +171,42 @@ input[type="password"] {
   }
 }
 
+.btn-interface {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  padding: 20px;
+  font-size: .9em;
+  cursor: pointer;
+  box-sizing: border-box;
+  border: 1px solid #DEDEDE;
+  border-radius: 4px;
+  color: gray;
+  box-shadow: 0px 1px 3px rgba(#DEDEDE, .5);
+
+  &:active {
+    transform: translateY(1px);
+    box-shadow: none;
+  }
+}
+
 .back-button,
 .quit-button {
   position: relative;
-  color: #999;
-  padding: 6px 10px;
-  border: 1px solid #CFCFCF;
+  color: #B9B9B9;
+  padding: 8px 5px;
+  font-size: .7em;
+  border: 1px solid #dddddd;
   border-radius: 4px;
   background: -webkit-linear-gradient(top, #FFFFFF 0%, #EDEDED 100%);
 
   &:hover {
-    color: #999;
-    border: 1px solid #CFCFCF;
+    color: #A1A1A1;
+    border: 1px solid #dddddd;
     border-radius: 4px;
   }
 
   &:active {
-    background: -webkit-linear-gradient(top, #EDEDED 0%, #FFFFFF 100%);
+    background: -webkit-linear-gradient(top, #F0F0F0 0%, #FAFAFA 100%);
   }
 }
 
@@ -149,23 +216,13 @@ input[type="password"] {
     font-size: 10px;
     content: "\e900";
     display: inline-block;
-    padding: 0 3px 0 5px;
-  }
-}
-
-.quit-button {
-  &:before {
-    font-family: "icomoon";
-    font-size: 10px;
-    content: "\e902";
-    display: inline-block;
-    padding: 0 3px 0 5px;
+    padding: 0 3px 0 0px;
   }
 }
 
 .share-button {
   position: relative;
-  padding-left: 35px;
+  padding-left: 40px;
 
   &:before {
     position: absolute;
@@ -174,14 +231,14 @@ input[type="password"] {
     left: 15px;
     font-family: "icomoon";
     font-size: 1.2em;
-    content: "\e903";
+    content: "\e902";
     display: inline-block;
   }
 }
 
 .join-button {
   position: relative;
-  padding-left: 35px;
+  padding-left: 40px;
 
   &:before {
     position: absolute;
@@ -189,8 +246,40 @@ input[type="password"] {
     transform: translateY(-50%);
     left: 15px;
     font-family: "icomoon";
-    font-size: 1.2em;
+    font-size: 1.3em;
     content: "\e901";
+    display: inline-block;
+  }
+}
+
+.destroy-button {
+  position: relative;
+
+  &:before {
+    position: absolute;
+    top: 50%; 
+    transform: translateY(-50%);
+    left: 15px;
+    color: #d64747;
+    font-family: "icomoon";
+    font-size: 1.6em;
+    content: "\e904";
+    display: inline-block;
+  }
+}
+
+.show-button {
+  position: relative;
+
+  &:before {
+    color: $main-color;
+    position: absolute;
+    top: 50%; 
+    transform: translateY(-50%);
+    left: 15px;
+    font-family: "icomoon";
+    font-size: 1.3em;
+    content: "\e903";
     display: inline-block;
   }
 }
@@ -203,19 +292,33 @@ input[type="password"] {
   width: 100%;
 }
 
+.capturer-list {
+  width: 100%;
+  padding: 0;
+  display: flex;
+  flex-flow: row wrap;
+}
+
 .capturer-list li {
   list-style-type: none;
-  margin-right: 30px;
-  float: left;
-  height: 150px;
+  margin: 0 auto 20px auto;
+  flex: 0 1 200px;
+  cursor: pointer;
+  position: relative;
+
+  img {
+    border: 3px solid transparent;
+    transition: 300ms ease-in-out;
+  }
+
+  img:hover {
+    border: 3px solid $main-color;
+    border-radius: 3px;
+  }
 }
 
 .capturer-list img {
-  border: 1px solid #F7F7F7;
-}
-
-.capturer-list img:hover {
-  border: 1px solid black;
+  width: 100%;
 }
 
 .capturer-list span {
@@ -226,6 +329,19 @@ input[type="password"] {
   margin: auto;
 }
 
-a {
-  color: black;
+.interface-wrap {  
+  &:after {
+    display: block;
+    content: '';
+    clear: both;
+  }
+}
+
+.vol-ctrl {
+  position: relative;
+  text-align: center;
+}
+
+.vol-ctrl-wrap {
+  padding: 20px 15px 15px;
 }
