@@ -10,7 +10,7 @@ var icons = {
 
 var mb = menubar({
   width: 400,
-  height: 350,
+  height: 400,
   index: 'file://' + path.join(__dirname, 'app.html'),
   icon: 'file://' + icons.disconnected
 })
