@@ -1,7 +1,7 @@
 var path = require('path')
 var menubar = require('menubar')
 var BrowserWindow = require('browser-window')
-var ipc = require('ipc')
+var ipc = require('electron').ipcMain
 
 var icons = {
   connected: path.join(__dirname, 'img', 'IconRed.png'),
@@ -48,7 +48,7 @@ ipc.on('create-window', function (ev, config) {
   console.log('create-window', [config])
   mb.app.dock.show()
   win = new BrowserWindow({width: 720, height: 445})
-  win.loadUrl('file://' + path.join(__dirname, 'screen.html'))
+  win.loadURL('file://' + path.join(__dirname, 'screen.html'))
 
   win.on('closed', function () {
     mb.app.dock.hide()
