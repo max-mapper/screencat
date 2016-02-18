@@ -1,7 +1,7 @@
 var path = require('path')
 var menubar = require('menubar')
 var BrowserWindow = require('browser-window')
-var ipc = require('ipc')
+var ipc = require('electron').ipcMain
 
 var icons = {
   connected: path.join(__dirname, 'img', 'IconRed.png'),
